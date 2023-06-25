@@ -1,0 +1,13 @@
+name: "List Fuzz Tests of Go"
+description: "List Fuzz Tests of Go"
+author: "ICHINOSE Shogo"
+
+inputs:
+  package:
+    required: false
+    description: "package name to list fuzz tests"
+    default: "./..."
+
+runs:
+  using: "node16"
+  main: "../dist/list/index.js"
