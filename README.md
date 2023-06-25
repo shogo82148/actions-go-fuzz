@@ -1,6 +1,4 @@
-<p align="center">
-  <a href="https://github.com/actions/typescript-action/actions"><img alt="typescript-action status" src="https://github.com/actions/typescript-action/workflows/build-test/badge.svg"></a>
-</p>
+[![build-test](https://github.com/shogo82148/typescript-action/actions/workflows/test.yml/badge.svg)](https://github.com/shogo82148/typescript-action/actions/workflows/test.yml)
 
 # Create a JavaScript Action using TypeScript
 
@@ -65,7 +63,7 @@ async function run() {
   }
 }
 
-run()
+await run();
 ```
 
 See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
