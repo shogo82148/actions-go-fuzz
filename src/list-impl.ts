@@ -37,6 +37,15 @@ export async function list(packages: string[], workingDirectory: string): Promis
       };
     });
 
+  // sort by package name and function name for better stability.
+  fuzzTests.sort((a, b) => {
+    if (a.package < b.package) return -1;
+    if (a.package > b.package) return 1;
+    if (a.func < b.func) return -1;
+    if (a.func > b.func) return 1;
+    return 0;
+  });
+
   return {
     fuzzTests,
   };

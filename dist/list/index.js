@@ -3966,6 +3966,18 @@ async function list(packages, workingDirectory) {
             func: line.Output?.trim() ?? "",
         };
     });
+    // sort by package name and function name for better stability.
+    fuzzTests.sort((a, b) => {
+        if (a.package < b.package)
+            return -1;
+        if (a.package > b.package)
+            return 1;
+        if (a.func < b.func)
+            return -1;
+        if (a.func > b.func)
+            return 1;
+        return 0;
+    });
     return {
         fuzzTests,
     };
