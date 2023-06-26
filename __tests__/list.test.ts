@@ -15,4 +15,4 @@ test("throws invalid number", async () => {
       func: "FuzzSomeFuzzTarget",
     },
   ]);
-});
+}, 30000); // it runs go test, so it takes time.
