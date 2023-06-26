@@ -11,6 +11,7 @@ func TestSomeFuzzTarget(t *testing.T) {
 }
 
 func FuzzSomeFuzzTarget(f *testing.F) {
+	f.Add("Hello, fuzzing!")
 	f.Fuzz(func(t *testing.T, orig string) {
 		SomeFuzzTarget(orig)
 	})

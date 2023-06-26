@@ -3947,22 +3947,78 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.fuzz = void 0;
+const core = __importStar(__nccwpck_require__(186));
 const exec = __importStar(__nccwpck_require__(514));
+const path = __importStar(__nccwpck_require__(17));
+const promises_1 = __importDefault(__nccwpck_require__(292));
 async function fuzz(options) {
-    await exec.exec("go", [
-        "test",
-        `-fuzz=${options.fuzzRegexp}`,
-        `-fuzztime=${options.fuzzTime}`,
-        `-fuzzminimizetime=${options.fuzzMinimizeTime}`,
-        options.packages,
-    ], { cwd: options.workingDirectory });
+    const exitCode = await core.group("fuzzing", async () => {
+        return await exec.exec("go", [
+            "test",
+            `-fuzz=${options.fuzzRegexp}`,
+            `-fuzztime=${options.fuzzTime}`,
+            `-fuzzminimizetime=${options.fuzzMinimizeTime}`,
+            options.packages,
+        ], { cwd: options.workingDirectory, ignoreReturnCode: true });
+    });
+    if (exitCode === 0) {
+        return {
+            TODO: "fill me!",
+        };
+    }
+    await generateReport(options);
     return {
         TODO: "fill me!",
     };
 }
 exports.fuzz = fuzz;
+async function generateReport(options) {
+    // const cwd = { cwd: options.workingDirectory };
+    const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+    const corpus = await getNewCorpus(options);
+    if (corpus === undefined) {
+        return;
+    }
+    const segments = corpus.split(path.sep);
+    const testFunc = segments[segments.length - 2];
+    const testCorpus = segments[segments.length - 1];
+    await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
+    const ret = await promises_1.default.readFile(corpus);
+    ret.toString("base64");
+    // cleanup
+    await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
+    await promises_1.default.unlink(corpus);
+}
+async function getNewCorpus(options) {
+    const cwd = { cwd: options.workingDirectory };
+    const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+    // check whether there is any changes.
+    await exec.exec("git", ["add", "."], cwd);
+    const hasChange = await exec.exec("git", ["diff", "--cached", "--exit-code", "--quiet"], ignoreReturnCode);
+    if (hasChange === 0) {
+        return undefined;
+    }
+    // find new test corpus.
+    const output = await exec.getExecOutput("git", ["diff", "--name-only", "--cached", "--no-renames", "--diff-filter=d"], cwd);
+    const testdata = output.stdout.split("\n").filter((file) => {
+        {
+            const segments = file.split(path.sep);
+            return (segments.length >= 4 &&
+                segments[segments.length - 4] === "testdata" &&
+                segments[segments.length - 3] === "fuzz" &&
+                segments[segments.length - 2].startsWith("Fuzz"));
+        }
+    });
+    if (testdata.length !== 1) {
+        return undefined;
+    }
+    return testdata[0];
+}
 
 
 /***/ }),
@@ -4061,6 +4117,14 @@ module.exports = require("events");
 
 "use strict";
 module.exports = require("fs");
+
+/***/ }),
+
+/***/ 292:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("fs/promises");
 
 /***/ }),
 

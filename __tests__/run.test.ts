@@ -13,3 +13,15 @@ test("no error", async () => {
   };
   await fuzz(opts);
 }, 30000); // it runs go test, so it takes time.
+
+test("found fuzz", async () => {
+  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const opts = {
+    packages: "example/fuzz",
+    fuzzRegexp: "^FuzzReverse$",
+    fuzzTime: "30s",
+    fuzzMinimizeTime: "1s",
+    workingDirectory,
+  };
+  await fuzz(opts);
+}, 30000); // it runs go test, so it takes time.
