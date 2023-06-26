@@ -43,6 +43,6 @@ jobs:
       - uses: ./run/
         with:
           working-directory: "__tests__/testdata/fuzz"
-          packages: ${{ matrix.packages }}
+          packages: ${{ matrix.package }}
           fuzz-regexp: ${{ matrix.func }}
-          fuzz-timeout: 5s
+          fuzz-time: 5s
