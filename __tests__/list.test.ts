@@ -2,7 +2,7 @@ import path from "path";
 import { list } from "../src/list-impl";
 import { expect, test } from "@jest/globals";
 
-test("throws invalid number", async () => {
+test("list fuzz tests", async () => {
   const workingDirectory = path.join(__dirname, "testdata/fuzz");
   const { fuzzTests } = await list(["./..."], workingDirectory);
   expect(fuzzTests).toEqual([
