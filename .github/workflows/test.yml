@@ -24,6 +24,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: ./list/
+      - id: list
+        uses: ./list/
         with:
           working-directory: "__tests__/testdata/fuzz"
+    outputs:
+      fuzz-tests: ${{steps.list.outputs.fuzz-tests}}
+
+  fuzz:
+    runs-on: ubuntu-latest
+    needs: list
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./run/
+        with:
+          working-directory: "__tests__/testdata/fuzz"
+          packages: ${{ matrix.packages }}
+          fuzz-regexp: ${{ matrix.func }}
+          fuzz-timeout: 5s

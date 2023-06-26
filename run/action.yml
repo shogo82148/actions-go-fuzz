@@ -1,11 +1,29 @@
-name: 'Your name here'
-description: 'Provide a description here'
-author: 'Your name or organization here'
+name: "Run Fuzz Tests of Go"
+description: "Run Fuzz Tests of Go"
+author: "ICHINOSE Shogo"
+
 inputs:
-  milliseconds: # change this
-    required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+  packages:
+    required: false
+    description: "package name to list fuzz tests"
+    default: "./..."
+  working-directory:
+    required: false
+    description: "working directory"
+    default: "."
+  fuzz-regexp:
+    required: false
+    description: "Run the fuzz test matching the regular expression. Corresponds to the `-fuzz` flag for the `go test` command."
+    default: "^Fuzz"
+  fuzz-time:
+    description: "Fuzz target iteration duration, specified as a `time.Duration` (for example `1h30s`). Corresponds to `-fuzztime` flag for the `go test` command. Ensure this is less than your job timeout."
+    required: false
+    default: 350m
+  fuzz-minimize-time:
+    description: "Fuzz minimization duration, specified as a `time.Duration` (for example `1h30s`). Corresponds to `-fuzzminimizetime` flag for the `go test` command. If you provide this input, ensure it is less than your job timeout."
+    required: false
+    default: 60s
+
 runs:
-  using: 'node16'
-  main: '../dist/run/index.js'
+  using: "node16"
+  main: "../dist/run/index.js"

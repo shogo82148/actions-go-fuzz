@@ -1,16 +1,22 @@
 import * as core from "@actions/core";
-import { wait } from "./wait";
+import { fuzz } from "./run-impl";
 
 async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput("milliseconds");
-    core.debug(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
+    const packages = core.getInput("packages").trim();
+    const workingDirectory = core.getInput("working-directory");
+    const fuzzRegexp = core.getInput("fuzz-regexp");
+    const fuzzTime = core.getInput("fuzz-time");
+    const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
+    const options = {
+      packages,
+      workingDirectory,
+      fuzzRegexp,
+      fuzzTime,
+      fuzzMinimizeTime,
+    };
 
-    core.debug(new Date().toTimeString());
-    await wait(parseInt(ms, 10));
-    core.debug(new Date().toTimeString());
-
-    core.setOutput("time", new Date().toTimeString());
+    await fuzz(options);
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
   }

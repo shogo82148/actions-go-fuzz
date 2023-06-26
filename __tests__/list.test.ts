@@ -8,11 +8,11 @@ test("list fuzz tests", async () => {
   expect(fuzzTests).toEqual([
     {
       package: "example/fuzz",
-      func: "FuzzReverse",
+      func: "^FuzzReverse$",
     },
     {
       package: "example/fuzz/sub",
-      func: "FuzzSomeFuzzTarget",
+      func: "^FuzzSomeFuzzTarget$",
     },
   ]);
 }, 30000); // it runs go test, so it takes time.
