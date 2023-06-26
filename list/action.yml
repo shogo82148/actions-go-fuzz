@@ -3,10 +3,14 @@ description: "List Fuzz Tests of Go"
 author: "ICHINOSE Shogo"
 
 inputs:
-  package:
+  packages:
     required: false
     description: "package name to list fuzz tests"
     default: "./..."
+  working-directory:
+    required: false
+    description: "working directory"
+    default: "."
 
 runs:
   using: "node16"

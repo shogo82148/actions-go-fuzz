@@ -1,16 +1,14 @@
+import { list } from "./list-impl";
 import * as core from "@actions/core";
-import { wait } from "./wait";
 
 async function run(): Promise<void> {
   try {
-    const ms: string = core.getInput("milliseconds");
-    core.debug(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_STEP_DEBUG` to true
+    const workingDirectory = core.getInput("working-directory");
+    const pkg = core.getInput("packages").trim();
+    const packages = pkg.split(/\s+/);
 
-    core.debug(new Date().toTimeString());
-    await wait(parseInt(ms, 10));
-    core.debug(new Date().toTimeString());
-
-    core.setOutput("time", new Date().toTimeString());
+    const { fuzzTests } = await list(packages, workingDirectory);
+    core.setOutput("fuzz-tests", JSON.stringify(fuzzTests));
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
   }
