@@ -4090,9 +4090,11 @@ async function createBranch(client, options, repositoryId, name, oid) {
       }
     }`,
         variables: {
-            repositoryId,
-            name: `refs/heads/${name}`,
-            oid,
+            input: {
+                repositoryId,
+                name: `refs/heads/${name}`,
+                oid,
+            },
         },
     };
     core.info(JSON.stringify(query));
