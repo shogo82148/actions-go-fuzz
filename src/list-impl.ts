@@ -33,7 +33,7 @@ export async function list(packages: string[], workingDirectory: string): Promis
     .map((line) => {
       return {
         package: line.Package,
-        func: line.Output?.trim() ?? "",
+        func: `^${line.Output?.trim() ?? ""}$`,
       };
     });
 

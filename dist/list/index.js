@@ -3963,7 +3963,7 @@ async function list(packages, workingDirectory) {
         .map((line) => {
         return {
             package: line.Package,
-            func: line.Output?.trim() ?? "",
+            func: `^${line.Output?.trim() ?? ""}$`,
         };
     });
     // sort by package name and function name for better stability.

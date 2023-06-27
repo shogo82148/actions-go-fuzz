@@ -12,6 +12,10 @@ inputs:
     description: "working directory"
     default: "."
 
+outputs:
+  fuzz-tests:
+    description: "the JSON-encoded list of fuzz tests"
+
 runs:
   using: "node16"
   main: "../dist/list/index.js"
