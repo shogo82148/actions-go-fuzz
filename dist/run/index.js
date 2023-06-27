@@ -3983,11 +3983,15 @@ async function fuzz(options) {
         ], { cwd: options.workingDirectory, ignoreReturnCode: true });
     });
     if (exitCode === 0) {
+        core.info("no fuzzing error");
         return {
             TODO: "fill me!",
         };
     }
-    await generateReport(options);
+    core.info("fuzzing error occurred");
+    await core.group("generate report", async () => {
+        await generateReport(options);
+    });
     return {
         TODO: "fill me!",
     };
@@ -3997,9 +4001,10 @@ async function generateReport(options) {
     // const cwd = { cwd: options.workingDirectory };
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     const corpus = await getNewCorpus(options);
-    if (corpus === undefined) {
+    if (corpus == null) {
         return;
     }
+    core.info(`new corpus found: ${corpus}`);
     const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
         headers: {
             Authorization: `Bearer ${options.githubToken}`,
@@ -4007,13 +4012,13 @@ async function generateReport(options) {
         },
     });
     const repositoryId = await getRepositoryId(client, options);
-    core.info(`repositoryId: ${repositoryId}`);
+    core.debug(`repositoryId: ${repositoryId}`);
     const segments = corpus.split(path.sep);
     const testFunc = segments[segments.length - 2];
     const testCorpus = segments[segments.length - 1];
-    // const branchName = `${options.headBranchPrefix}/${testFunc}/${testCorpus}`;
-    // const oid = "";
-    // await createBranch(client, options, repositoryId, branchName, oid);
+    const branchName = `${options.headBranchPrefix}/${options.packages}/${testFunc}/${testCorpus}`;
+    const oid = await getHeadRef();
+    await createBranch(client, options, repositoryId, branchName, oid);
     await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
     const ret = await promises_1.default.readFile(corpus);
     ret.toString("base64");
@@ -4066,20 +4071,25 @@ async function getRepositoryId(client, options) {
     }
     return response.result.data.repository.id;
 }
-// async function createBranch(options: FuzzOptions, repositoryId: string, name: string, oid: string): Promise<void> {
-//   const query = {
-//     query: `mutation ($input: CreateRefInput!) {
-//       createRef(input: $input) {
-//         clientMutationId
-//       }
-//     }`,
-//     variables: {
-//       repositoryId,
-//       name: `refs/heads/${name}`,
-//       oid,
-//     },
-//   };
-// }
+async function getHeadRef() {
+    const output = await exec.getExecOutput("git", ["rev-parse", "HEAD"]);
+    return output.stdout.trim();
+}
+async function createBranch(client, options, repositoryId, name, oid) {
+    const query = {
+        query: `mutation ($input: CreateRefInput!) {
+      createRef(input: $input) {
+        clientMutationId
+      }
+    }`,
+        variables: {
+            repositoryId,
+            name: `refs/heads/${name}`,
+            oid,
+        },
+    };
+    await client.postJson(options.githubGraphqlUrl, query);
+}
 
 
 /***/ }),
