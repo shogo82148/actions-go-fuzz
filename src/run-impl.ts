@@ -186,5 +186,6 @@ async function createBranch(
   };
   core.info(JSON.stringify(query));
 
-  await client.postJson(options.githubGraphqlUrl, query);
+  const response = await client.postJson(options.githubGraphqlUrl, query);
+  core.info(JSON.stringify(response));
 }
