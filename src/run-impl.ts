@@ -179,9 +179,11 @@ async function createBranch(
       }
     }`,
     variables: {
-      repositoryId,
-      name: `refs/heads/${name}`,
-      oid,
+      input: {
+        repositoryId,
+        name: `refs/heads/${name}`,
+        oid,
+      },
     },
   };
   core.info(JSON.stringify(query));
