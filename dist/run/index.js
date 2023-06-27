@@ -4013,10 +4013,12 @@ async function generateReport(options) {
     });
     const repositoryId = await getRepositoryId(client, options);
     core.debug(`repositoryId: ${repositoryId}`);
+    // create a new branch
+    const packageName = await getPackageName(options);
     const segments = corpus.split(path.sep);
     const testFunc = segments[segments.length - 2];
     const testCorpus = segments[segments.length - 1];
-    const branchName = `${options.headBranchPrefix}/${options.packages}/${testFunc}/${testCorpus}`;
+    const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
     const oid = await getHeadRef();
     await createBranch(client, options, repositoryId, branchName, oid);
     await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
@@ -4075,6 +4077,11 @@ async function getHeadRef() {
     const output = await exec.getExecOutput("git", ["rev-parse", "HEAD"]);
     return output.stdout.trim();
 }
+async function getPackageName(options) {
+    const output = await exec.getExecOutput("go", ["list", options.packages], { cwd: options.workingDirectory });
+    const pkg = output.stdout.trim();
+    return pkg;
+}
 async function createBranch(client, options, repositoryId, name, oid) {
     const query = {
         query: `mutation ($input: CreateRefInput!) {
@@ -4088,6 +4095,7 @@ async function createBranch(client, options, repositoryId, name, oid) {
             oid,
         },
     };
+    core.info(JSON.stringify(query));
     await client.postJson(options.githubGraphqlUrl, query);
 }
 
