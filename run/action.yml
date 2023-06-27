@@ -3,6 +3,14 @@ description: "Run Fuzz Tests of Go"
 author: "ICHINOSE Shogo"
 
 inputs:
+  repository:
+    description: "Repository name with owner. For example, shogo82148/actions-go-fuzz."
+    required: true
+    default: ${{ github.repository }}
+  token:
+    description: "The GitHub token for the repository."
+    required: true
+    default: ${{ github.token }}
   packages:
     required: false
     description: "package name to list fuzz tests"
@@ -21,8 +29,12 @@ inputs:
     default: 350m
   fuzz-minimize-time:
     description: "Fuzz minimization duration, specified as a `time.Duration` (for example `1h30s`). Corresponds to `-fuzzminimizetime` flag for the `go test` command. If you provide this input, ensure it is less than your job timeout."
-    required: false
+    required: true
     default: 60s
+  head-branch-prefix:
+    description: "The prefix of the head branch name of the pull request."
+    required: true
+    default: "actions-go-fuzz/"
 
 runs:
   using: "node16"
