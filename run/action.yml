@@ -34,7 +34,7 @@ inputs:
   head-branch-prefix:
     description: "The prefix of the head branch name of the pull request."
     required: true
-    default: "actions-go-fuzz/"
+    default: "actions-go-fuzz"
 
 runs:
   using: "node16"
