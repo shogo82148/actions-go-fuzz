@@ -4096,7 +4096,8 @@ async function createBranch(client, options, repositoryId, name, oid) {
         },
     };
     core.info(JSON.stringify(query));
-    await client.postJson(options.githubGraphqlUrl, query);
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    core.info(JSON.stringify(response));
 }
 
 
