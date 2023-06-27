@@ -2461,6 +2461,10 @@ function checkBypass(reqUrl) {
     if (!reqUrl.hostname) {
         return false;
     }
+    const reqHost = reqUrl.hostname;
+    if (isLoopbackAddress(reqHost)) {
+        return true;
+    }
     const noProxy = process.env['no_proxy'] || process.env['NO_PROXY'] || '';
     if (!noProxy) {
         return false;
@@ -2486,13 +2490,24 @@ function checkBypass(reqUrl) {
         .split(',')
         .map(x => x.trim().toUpperCase())
         .filter(x => x)) {
-        if (upperReqHosts.some(x => x === upperNoProxyItem)) {
+        if (upperNoProxyItem === '*' ||
+            upperReqHosts.some(x => x === upperNoProxyItem ||
+                x.endsWith(`.${upperNoProxyItem}`) ||
+                (upperNoProxyItem.startsWith('.') &&
+                    x.endsWith(`${upperNoProxyItem}`)))) {
             return true;
         }
     }
     return false;
 }
 exports.checkBypass = checkBypass;
+function isLoopbackAddress(host) {
+    const hostLower = host.toLowerCase();
+    return (hostLower === 'localhost' ||
+        hostLower.startsWith('127.') ||
+        hostLower.startsWith('[::1]') ||
+        hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
+}
 //# sourceMappingURL=proxy.js.map
 
 /***/ }),
@@ -3954,6 +3969,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.fuzz = void 0;
 const core = __importStar(__nccwpck_require__(186));
 const exec = __importStar(__nccwpck_require__(514));
+const http = __importStar(__nccwpck_require__(255));
 const path = __importStar(__nccwpck_require__(17));
 const promises_1 = __importDefault(__nccwpck_require__(292));
 async function fuzz(options) {
@@ -3984,9 +4000,20 @@ async function generateReport(options) {
     if (corpus === undefined) {
         return;
     }
+    const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
+        headers: {
+            Authorization: `Bearer ${options.githubToken}`,
+            "X-Github-Next-Global-ID": "1",
+        },
+    });
+    const repositoryId = await getRepositoryId(client, options);
+    core.info(`repositoryId: ${repositoryId}`);
     const segments = corpus.split(path.sep);
     const testFunc = segments[segments.length - 2];
     const testCorpus = segments[segments.length - 1];
+    // const branchName = `${options.headBranchPrefix}/${testFunc}/${testCorpus}`;
+    // const oid = "";
+    // await createBranch(client, options, repositoryId, branchName, oid);
     await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
     const ret = await promises_1.default.readFile(corpus);
     ret.toString("base64");
@@ -4019,6 +4046,40 @@ async function getNewCorpus(options) {
     }
     return testdata[0];
 }
+// getRepositoryId gets the repository id from GitHub GraphQL API.
+async function getRepositoryId(client, options) {
+    const [owner, name] = options.repository.split("/");
+    const query = {
+        query: `query ($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        id
+      }
+    }`,
+        variables: {
+            owner,
+            name,
+        },
+    };
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    if (response.result == null) {
+        throw new Error("failed to get repository id");
+    }
+    return response.result.data.repository.id;
+}
+// async function createBranch(options: FuzzOptions, repositoryId: string, name: string, oid: string): Promise<void> {
+//   const query = {
+//     query: `mutation ($input: CreateRefInput!) {
+//       createRef(input: $input) {
+//         clientMutationId
+//       }
+//     }`,
+//     variables: {
+//       repositoryId,
+//       name: `refs/heads/${name}`,
+//       oid,
+//     },
+//   };
+// }
 
 
 /***/ }),
@@ -4056,17 +4117,25 @@ const core = __importStar(__nccwpck_require__(186));
 const run_impl_1 = __nccwpck_require__(706);
 async function run() {
     try {
+        const repository = core.getInput("repository");
+        const githubToken = core.getInput("token");
+        const githubGraphqlUrl = process.env["GITHUB_GRAPHQL_URL"] || "https://api.github.com/graphql";
         const packages = core.getInput("packages").trim();
         const workingDirectory = core.getInput("working-directory");
         const fuzzRegexp = core.getInput("fuzz-regexp");
         const fuzzTime = core.getInput("fuzz-time");
         const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
+        const headBranchPrefix = core.getInput("head-branch-prefix").trim();
         const options = {
+            repository,
+            githubToken,
+            githubGraphqlUrl,
             packages,
             workingDirectory,
             fuzzRegexp,
             fuzzTime,
             fuzzMinimizeTime,
+            headBranchPrefix,
         };
         await (0, run_impl_1.fuzz)(options);
     }
