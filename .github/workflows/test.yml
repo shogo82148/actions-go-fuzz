@@ -45,5 +45,7 @@ jobs:
 
       - name: cleanup
         if: steps.fuzz.outputs.found
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           gh pr close --delete-branch ${{ steps.fuzz.outputs.pull-request-number }}
