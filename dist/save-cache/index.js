@@ -58994,6 +58994,12 @@ async function createBranch(client, options, input) {
     if (response.result == null) {
         throw new Error("failed to create a branch");
     }
+    if (response.result.errors != null) {
+        for (const error of response.result.errors) {
+            core.error(error.message);
+        }
+        throw new Error("failed to create a branch");
+    }
     return response.result;
 }
 async function createCommit(client, options, input) {
@@ -59017,6 +59023,12 @@ async function createCommit(client, options, input) {
     if (response.result == null) {
         throw new Error("failed to create a commit");
     }
+    if (response.result.errors != null) {
+        for (const error of response.result.errors) {
+            core.error(error.message);
+        }
+        throw new Error("failed to create a commit");
+    }
     return response.result;
 }
 async function createPullRequest(client, options, input) {
@@ -59038,6 +59050,12 @@ async function createPullRequest(client, options, input) {
     const response = await client.postJson(options.githubGraphqlUrl, query);
     core.debug(`create a pull request response: ${JSON.stringify(response)}`);
     if (response.result == null) {
+        throw new Error("failed to create a pull request");
+    }
+    if (response.result.errors != null) {
+        for (const error of response.result.errors) {
+            core.error(error.message);
+        }
         throw new Error("failed to create a pull request");
     }
     return response.result;
