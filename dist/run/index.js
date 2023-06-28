@@ -4297,7 +4297,7 @@ async function run() {
             headBranchPrefix,
         };
         const result = await (0, run_impl_1.fuzz)(options);
-        core.setOutput("found", result.found);
+        core.setOutput("found", result.found ? "true" : "");
         core.setOutput("head-branch", result.headBranch);
         core.setOutput("pull-request-number", result.pullRequestNumber);
         core.setOutput("pull-request-url", result.pullRequestUrl);

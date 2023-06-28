@@ -33,7 +33,7 @@ async function run(): Promise<void> {
     };
 
     const result = await fuzz(options);
-    core.setOutput("found", result.found);
+    core.setOutput("found", result.found ? "true" : "");
     core.setOutput("head-branch", result.headBranch);
     core.setOutput("pull-request-number", result.pullRequestNumber);
     core.setOutput("pull-request-url", result.pullRequestUrl);

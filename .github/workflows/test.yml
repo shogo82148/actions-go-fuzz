@@ -37,7 +37,6 @@ jobs:
       - id: fuzz
         uses: ./run/
         with:
-          base-branch: main
           working-directory: "__tests__/testdata/fuzz"
           packages: ${{ matrix.package }}
           fuzz-regexp: ${{ matrix.func }}
