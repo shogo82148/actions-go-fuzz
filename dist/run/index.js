@@ -3970,7 +3970,6 @@ exports.fuzz = void 0;
 const core = __importStar(__nccwpck_require__(186));
 const exec = __importStar(__nccwpck_require__(514));
 const http = __importStar(__nccwpck_require__(255));
-const path = __importStar(__nccwpck_require__(17));
 const crypto = __importStar(__nccwpck_require__(113));
 const promises_1 = __importDefault(__nccwpck_require__(292));
 async function fuzz(options) {
@@ -4025,7 +4024,7 @@ async function generateReport(options) {
     core.debug(`repositoryId: ${repositoryId}`);
     // create a new branch
     const packageName = await getPackageName(options);
-    const segments = corpus.split(path.sep);
+    const segments = corpus.split("/");
     const testFunc = segments[segments.length - 2];
     const testCorpus = segments[segments.length - 1];
     const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
