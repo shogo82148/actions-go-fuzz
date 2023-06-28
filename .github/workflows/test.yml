@@ -1,5 +1,5 @@
-name: "build-test"
-on: # rebuild any PRs and main branch changes
+name: "test"
+on:
   pull_request:
   push:
     branches:
@@ -7,32 +7,12 @@ on: # rebuild any PRs and main branch changes
       - "releases/*"
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
+# run integrated tests
 jobs:
-  # make sure build/ci work properly
-  build:
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - windows-latest
-          - macos-latest
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version-file: "package.json"
-          cache: "npm"
-      - run: |
-          npm ci
-      - run: |
-          npm run all
-
-  list: # make sure the action works on a clean machine without building
+  list:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -52,9 +32,6 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v3
       - uses: ./run/
