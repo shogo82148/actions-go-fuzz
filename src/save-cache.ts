@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import { fuzz, restoreCache } from "./run-impl";
+import { saveCache } from "./run-impl";
 
 async function run(): Promise<void> {
   const repository = core.getInput("repository");
@@ -32,22 +32,12 @@ async function run(): Promise<void> {
   };
 
   try {
-    await core.group("restore cache", async () => {
-      await restoreCache(options);
+    await core.group("save cache", async () => {
+      await saveCache(options);
     });
   } catch (error) {
-    core.warning("error while restoring cache.");
+    core.warning("error while saving cache.");
     if (error instanceof Error) core.warning(error.message);
-  }
-
-  try {
-    const result = await fuzz(options);
-    core.setOutput("found", result.found ? "true" : "");
-    core.setOutput("head-branch", result.headBranch);
-    core.setOutput("pull-request-number", result.pullRequestNumber);
-    core.setOutput("pull-request-url", result.pullRequestUrl);
-  } catch (error) {
-    if (error instanceof Error) core.setFailed(error.message);
   }
 }
 
