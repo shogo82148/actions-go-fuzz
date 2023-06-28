@@ -6,6 +6,10 @@ async function run(): Promise<void> {
     const repository = core.getInput("repository");
     const githubToken = core.getInput("token");
     const githubGraphqlUrl = process.env["GITHUB_GRAPHQL_URL"] || "https://api.github.com/graphql";
+    const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
+    const githubRunId = process.env["GITHUB_RUN_ID"];
+    const githubRunAttempt = process.env["GITHUB_RUN_ATTEMPT"];
+    const baseBranch = process.env["GITHUB_REF_NAME"] || "main";
     const packages = core.getInput("packages").trim();
     const workingDirectory = core.getInput("working-directory");
     const fuzzRegexp = core.getInput("fuzz-regexp");
@@ -16,6 +20,10 @@ async function run(): Promise<void> {
       repository,
       githubToken,
       githubGraphqlUrl,
+      githubServerUrl,
+      githubRunId,
+      githubRunAttempt,
+      baseBranch,
       packages,
       workingDirectory,
       fuzzRegexp,

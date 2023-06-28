@@ -14,6 +14,10 @@ test("no error", async () => {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
     githubGraphqlUrl: "https://api.github.com/graphql",
+    githubServerUrl: "https://github.com",
+    githubRunId: "123456789",
+    githubRunAttempt: "1",
+    baseBranch: "main",
     packages: "example/fuzz/sub",
     fuzzRegexp: "^FuzzSomeFuzzTarget$",
     fuzzTime: "5s",
@@ -64,11 +68,28 @@ test("found fuzz", async () => {
     )
   );
 
+  // result of creating a new pull request.
+  mockClient.mockReturnValueOnce(
+    new Promise<TypedResponse<any>>((resolve) =>
+      resolve({
+        statusCode: 200,
+        result: {
+          /* TODO: fill me! */
+        },
+        headers: {} as IncomingHttpHeaders,
+      })
+    )
+  );
+
   const workingDirectory = path.join(__dirname, "testdata/fuzz");
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
     githubGraphqlUrl: "https://api.github.com/graphql",
+    githubServerUrl: "https://github.com",
+    githubRunId: "123456789",
+    githubRunAttempt: "1",
+    baseBranch: "main",
     packages: "example/fuzz",
     fuzzRegexp: "^FuzzReverse$",
     fuzzTime: "30s",
