@@ -69,15 +69,17 @@ export async function fuzz(options: FuzzOptions): Promise<FuzzResult> {
   };
 }
 
-export async function restoreCache(): Promise<void> {
+export async function restoreCache(options: FuzzOptions): Promise<void> {
   const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
-  await cache.restoreCache([`${cachePath}/fuzz`], "go-fuzz-", []);
+  const packageName = await getPackageName(options);
+  await cache.restoreCache([`${cachePath}/fuzz`], `go-fuzz-${packageName}-${options.fuzzRegexp}-`, []);
 }
 
-export async function saveCache(): Promise<void> {
+export async function saveCache(options: FuzzOptions): Promise<void> {
   const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
+  const packageName = await getPackageName(options);
   const id = await getHeadRef();
-  await cache.saveCache([`${cachePath}/fuzz`], `go-fuzz-${id}`);
+  await cache.saveCache([`${cachePath}/fuzz`], `go-fuzz-${packageName}-${options.fuzzRegexp}-${id}`);
 }
 
 interface GenerateReportResult {

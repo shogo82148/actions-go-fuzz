@@ -58805,15 +58805,17 @@ async function fuzz(options) {
     };
 }
 exports.fuzz = fuzz;
-async function restoreCache() {
+async function restoreCache(options) {
     const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
-    await cache.restoreCache([`${cachePath}/fuzz`], "go-fuzz-", []);
+    const packageName = await getPackageName(options);
+    await cache.restoreCache([`${cachePath}/fuzz`], `go-fuzz-${packageName}-${options.fuzzRegexp}-`, []);
 }
 exports.restoreCache = restoreCache;
-async function saveCache() {
+async function saveCache(options) {
     const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
+    const packageName = await getPackageName(options);
     const id = await getHeadRef();
-    await cache.saveCache([`${cachePath}/fuzz`], `go-fuzz-${id}`);
+    await cache.saveCache([`${cachePath}/fuzz`], `go-fuzz-${packageName}-${options.fuzzRegexp}-${id}`);
 }
 exports.saveCache = saveCache;
 async function generateReport(options) {
@@ -59074,9 +59076,37 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const run_impl_1 = __nccwpck_require__(2706);
 async function run() {
+    const repository = core.getInput("repository");
+    const githubToken = core.getInput("token");
+    const githubGraphqlUrl = process.env["GITHUB_GRAPHQL_URL"] || "https://api.github.com/graphql";
+    const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
+    const githubRunId = process.env["GITHUB_RUN_ID"];
+    const githubRunAttempt = process.env["GITHUB_RUN_ATTEMPT"];
+    const baseBranch = core.getInput("base-branch") || process.env["GITHUB_HEAD_REF"] || "main";
+    const packages = core.getInput("packages").trim();
+    const workingDirectory = core.getInput("working-directory");
+    const fuzzRegexp = core.getInput("fuzz-regexp");
+    const fuzzTime = core.getInput("fuzz-time");
+    const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
+    const headBranchPrefix = core.getInput("head-branch-prefix").trim();
+    const options = {
+        repository,
+        githubToken,
+        githubGraphqlUrl,
+        githubServerUrl,
+        githubRunId,
+        githubRunAttempt,
+        baseBranch,
+        packages,
+        workingDirectory,
+        fuzzRegexp,
+        fuzzTime,
+        fuzzMinimizeTime,
+        headBranchPrefix,
+    };
     try {
         await core.group("save cache", async () => {
-            await (0, run_impl_1.saveCache)();
+            await (0, run_impl_1.saveCache)(options);
         });
     }
     catch (error) {
