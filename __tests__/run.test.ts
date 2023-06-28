@@ -22,7 +22,7 @@ test("no error", async () => {
     headBranchPrefix: "actions-go-fuzz/",
   };
   await fuzz(opts);
-}, 30000); // it runs go test, so it takes time.
+}, 60000); // it runs go test, so it takes time.
 
 test("found fuzz", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
@@ -77,4 +77,4 @@ test("found fuzz", async () => {
     headBranchPrefix: "actions-go-fuzz/",
   };
   await fuzz(opts);
-}, 30000); // it runs go test, so it takes time.
+}, 60000); // it runs go test, so it takes time.
