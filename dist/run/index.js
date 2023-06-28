@@ -4113,13 +4113,11 @@ async function getNewCorpus(options) {
     // find new test corpus.
     const output = await exec.getExecOutput("git", ["diff", "--name-only", "--cached", "--no-renames", "--diff-filter=d"], cwd);
     const testdata = output.stdout.split("\n").filter((file) => {
-        {
-            const segments = file.split(path.sep);
-            return (segments.length >= 4 &&
-                segments[segments.length - 4] === "testdata" &&
-                segments[segments.length - 3] === "fuzz" &&
-                segments[segments.length - 2].startsWith("Fuzz"));
-        }
+        const segments = file.split("/");
+        return (segments.length >= 4 &&
+            segments[segments.length - 4] === "testdata" &&
+            segments[segments.length - 3] === "fuzz" &&
+            segments[segments.length - 2].startsWith("Fuzz"));
     });
     if (testdata.length !== 1) {
         return undefined;
