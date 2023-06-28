@@ -2461,6 +2461,10 @@ function checkBypass(reqUrl) {
     if (!reqUrl.hostname) {
         return false;
     }
+    const reqHost = reqUrl.hostname;
+    if (isLoopbackAddress(reqHost)) {
+        return true;
+    }
     const noProxy = process.env['no_proxy'] || process.env['NO_PROXY'] || '';
     if (!noProxy) {
         return false;
@@ -2486,13 +2490,24 @@ function checkBypass(reqUrl) {
         .split(',')
         .map(x => x.trim().toUpperCase())
         .filter(x => x)) {
-        if (upperReqHosts.some(x => x === upperNoProxyItem)) {
+        if (upperNoProxyItem === '*' ||
+            upperReqHosts.some(x => x === upperNoProxyItem ||
+                x.endsWith(`.${upperNoProxyItem}`) ||
+                (upperNoProxyItem.startsWith('.') &&
+                    x.endsWith(`${upperNoProxyItem}`)))) {
             return true;
         }
     }
     return false;
 }
 exports.checkBypass = checkBypass;
+function isLoopbackAddress(host) {
+    const hostLower = host.toLowerCase();
+    return (hostLower === 'localhost' ||
+        hostLower.startsWith('127.') ||
+        hostLower.startsWith('[::1]') ||
+        hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
+}
 //# sourceMappingURL=proxy.js.map
 
 /***/ }),
@@ -3954,7 +3969,9 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.fuzz = void 0;
 const core = __importStar(__nccwpck_require__(186));
 const exec = __importStar(__nccwpck_require__(514));
+const http = __importStar(__nccwpck_require__(255));
 const path = __importStar(__nccwpck_require__(17));
+const crypto = __importStar(__nccwpck_require__(113));
 const promises_1 = __importDefault(__nccwpck_require__(292));
 async function fuzz(options) {
     const exitCode = await core.group("fuzzing", async () => {
@@ -3967,13 +3984,26 @@ async function fuzz(options) {
         ], { cwd: options.workingDirectory, ignoreReturnCode: true });
     });
     if (exitCode === 0) {
+        core.info("no fuzzing error");
         return {
-            TODO: "fill me!",
+            found: false,
         };
     }
-    await generateReport(options);
+    core.info("fuzzing error occurred");
+    const result = await core.group("generate report", async () => {
+        return await generateReport(options);
+    });
+    if (result == null) {
+        core.info("no new corpus found");
+        return {
+            found: false,
+        };
+    }
     return {
-        TODO: "fill me!",
+        found: true,
+        headBranch: result.headBranch,
+        pullRequestNumber: result.pullRequestNumber,
+        pullRequestUrl: result.pullRequestUrl,
     };
 }
 exports.fuzz = fuzz;
@@ -3981,18 +4011,95 @@ async function generateReport(options) {
     // const cwd = { cwd: options.workingDirectory };
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     const corpus = await getNewCorpus(options);
-    if (corpus === undefined) {
-        return;
+    if (corpus == null) {
+        return null;
     }
+    core.info(`new corpus found: ${corpus}`);
+    const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
+        headers: {
+            Authorization: `Bearer ${options.githubToken}`,
+            "X-Github-Next-Global-ID": "1",
+        },
+    });
+    const repositoryId = await getRepositoryId(client, options);
+    core.debug(`repositoryId: ${repositoryId}`);
+    // create a new branch
+    const packageName = await getPackageName(options);
     const segments = corpus.split(path.sep);
     const testFunc = segments[segments.length - 2];
     const testCorpus = segments[segments.length - 1];
-    await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
-    const ret = await promises_1.default.readFile(corpus);
-    ret.toString("base64");
+    const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
+    const oid = await getHeadRef();
+    await createBranch(client, options, {
+        clientMutationId: newClientMutationId(),
+        repositoryId,
+        name: `refs/heads/${branchName}`,
+        oid,
+    });
+    const testResult = await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
+    const contents = await promises_1.default.readFile(corpus);
+    // create a new commit
+    await createCommit(client, options, {
+        clientMutationId: newClientMutationId(),
+        branch: {
+            repositoryNameWithOwner: options.repository,
+            branchName,
+        },
+        fileChanges: {
+            additions: [
+                {
+                    path: corpus,
+                    contents: contents.toString("base64"),
+                },
+            ],
+            deletions: [],
+        },
+        expectedHeadOid: oid,
+        message: {
+            headline: `Add a new fuzz data for ${testFunc} in ${packageName}.`,
+            body: `${"`"}go test -run=${testFunc}/${testCorpus} ${options.packages}${"`"} failed with the following output:
+
+${"```"}
+${testResult.stdout}
+${"```"}
+
+This fuzz data is generated by [actions-go-fuzz](https://github.com/shogo82148/actions-go-fuzz).
+`,
+        },
+    });
+    // create a new pull request
+    const logUrl = options.githubRunId != null && options.githubRunAttempt != null
+        ? `${options.githubServerUrl}/${options.repository}/actions/runs/${options.githubRunId}/attempts/${options.githubRunAttempt}`
+        : undefined;
+    const pullRequest = await createPullRequest(client, options, {
+        clientMutationId: newClientMutationId(),
+        repositoryId,
+        headRepositoryId: repositoryId,
+        baseRefName: options.baseBranch,
+        headRefName: branchName,
+        maintainerCanModify: true,
+        draft: false,
+        title: `Fuzz test failed with ${testFunc} in ${packageName}.`,
+        body: `${"`"}go test -run=${testFunc}/${testCorpus} ${options.packages}${"`"} failed with the following output:
+
+${"```"}
+${testResult.stdout}
+${"```"}
+
+---
+
+This pull request is generated by [actions-go-fuzz](https://github.com/shogo82148/actions-go-fuzz).
+${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
+`,
+    });
     // cleanup
     await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
     await promises_1.default.unlink(corpus);
+    return {
+        headBranch: branchName,
+        pullRequestNumber: pullRequest.data.createPullRequest.pullRequest.number,
+        pullRequestUrl: pullRequest.data.createPullRequest.pullRequest.url,
+    };
 }
 async function getNewCorpus(options) {
     const cwd = { cwd: options.workingDirectory };
@@ -4018,6 +4125,111 @@ async function getNewCorpus(options) {
         return undefined;
     }
     return testdata[0];
+}
+// getRepositoryId gets the repository id from GitHub GraphQL API.
+async function getRepositoryId(client, options) {
+    const [owner, name] = options.repository.split("/");
+    const query = {
+        // ref. https://docs.github.com/en/graphql/reference/queries#repository
+        query: `query ($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        id
+      }
+    }`,
+        variables: {
+            owner,
+            name,
+        },
+    };
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    if (response.result == null) {
+        throw new Error("failed to get repository id");
+    }
+    if (response.result.errors != null) {
+        for (const error of response.result.errors) {
+            core.error(error.message);
+        }
+        throw new Error("failed to get repository id");
+    }
+    return response.result.data.repository.id;
+}
+async function getHeadRef() {
+    const output = await exec.getExecOutput("git", ["rev-parse", "HEAD"]);
+    return output.stdout.trim();
+}
+async function getPackageName(options) {
+    const output = await exec.getExecOutput("go", ["list", options.packages], { cwd: options.workingDirectory });
+    const pkg = output.stdout.trim();
+    return pkg;
+}
+function newClientMutationId() {
+    return crypto.randomUUID();
+}
+async function createBranch(client, options, input) {
+    const query = {
+        // ref. https://docs.github.com/en/graphql/reference/mutations#createref
+        query: `mutation ($input: CreateRefInput!) {
+      createRef(input: $input) {
+        clientMutationId
+      }
+    }`,
+        variables: {
+            input,
+        },
+    };
+    core.debug(`create a branch request: ${JSON.stringify(query)}`);
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    core.debug(`create a branch response: ${JSON.stringify(response)}`);
+    if (response.result == null) {
+        throw new Error("failed to create a branch");
+    }
+    return response.result;
+}
+async function createCommit(client, options, input) {
+    const query = {
+        // https://docs.github.com/en/graphql/reference/mutations#createcommitonbranch
+        query: `mutation ($input: CreateCommitOnBranchInput!) {
+      createCommitOnBranch(input: $input) {
+        commit {
+          oid
+          url
+        }
+      }
+    }`,
+        variables: {
+            input,
+        },
+    };
+    core.debug(`create a commit request: ${JSON.stringify(query)}`);
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    core.debug(`create a commit response: ${JSON.stringify(response)}`);
+    if (response.result == null) {
+        throw new Error("failed to create a commit");
+    }
+    return response.result;
+}
+async function createPullRequest(client, options, input) {
+    const query = {
+        // https://docs.github.com/en/graphql/reference/mutations#createpullrequest
+        query: `mutation ($input: CreatePullRequestInput!) {
+      createPullRequest(input: $input) {
+        pullRequest {
+          number
+          url
+        }
+      }
+    }`,
+        variables: {
+            input,
+        },
+    };
+    core.debug(`create a pull request request: ${JSON.stringify(query)}`);
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    core.debug(`create a pull request response: ${JSON.stringify(response)}`);
+    if (response.result == null) {
+        throw new Error("failed to create a pull request");
+    }
+    return response.result;
 }
 
 
@@ -4056,19 +4268,39 @@ const core = __importStar(__nccwpck_require__(186));
 const run_impl_1 = __nccwpck_require__(706);
 async function run() {
     try {
+        const repository = core.getInput("repository");
+        const githubToken = core.getInput("token");
+        const githubGraphqlUrl = process.env["GITHUB_GRAPHQL_URL"] || "https://api.github.com/graphql";
+        const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
+        const githubRunId = process.env["GITHUB_RUN_ID"];
+        const githubRunAttempt = process.env["GITHUB_RUN_ATTEMPT"];
+        const baseBranch = core.getInput("base-branch") || process.env["GITHUB_HEAD_REF"] || "main";
         const packages = core.getInput("packages").trim();
         const workingDirectory = core.getInput("working-directory");
         const fuzzRegexp = core.getInput("fuzz-regexp");
         const fuzzTime = core.getInput("fuzz-time");
         const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
+        const headBranchPrefix = core.getInput("head-branch-prefix").trim();
         const options = {
+            repository,
+            githubToken,
+            githubGraphqlUrl,
+            githubServerUrl,
+            githubRunId,
+            githubRunAttempt,
+            baseBranch,
             packages,
             workingDirectory,
             fuzzRegexp,
             fuzzTime,
             fuzzMinimizeTime,
+            headBranchPrefix,
         };
-        await (0, run_impl_1.fuzz)(options);
+        const result = await (0, run_impl_1.fuzz)(options);
+        core.setOutput("found", result.found ? "true" : "");
+        core.setOutput("head-branch", result.headBranch);
+        core.setOutput("pull-request-number", result.pullRequestNumber);
+        core.setOutput("pull-request-url", result.pullRequestUrl);
     }
     catch (error) {
         if (error instanceof Error)
