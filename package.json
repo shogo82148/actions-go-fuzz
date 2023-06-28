@@ -9,8 +9,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "format": "prettier --write '**/*.ts'",
-    "format-check": "prettier --check '**/*.ts'",
+    "format": "prettier --write \"**/*.ts\"",
+    "format-check": "prettier --check \"**/*.ts\"",
     "lint": "eslint src/**/*.ts",
     "package": "ncc build -o dist/list --source-map --license licenses.txt src/list.ts && ncc build -o dist/run --source-map --license licenses.txt src/run.ts ",
     "test": "jest",
@@ -27,7 +27,8 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.10.0",
-    "@actions/exec": "^1.1.1"
+    "@actions/exec": "^1.1.1",
+    "@actions/http-client": "^2.1.0"
   },
   "devDependencies": {
     "@types/node": "^16.18.36",

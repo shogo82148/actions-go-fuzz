@@ -1,27 +1,20 @@
-name: "build-test"
-on: # rebuild any PRs and main branch changes
+name: "test"
+on:
   pull_request:
   push:
     branches:
       - main
       - "releases/*"
 
-jobs:
-  build: # make sure build/ci work properly
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-node@v3
-        with:
-          node-version-file: "package.json"
-          cache: "npm"
-      - run: |
-          npm ci
-      - run: |
-          npm run all
+permissions:
+  contents: write
+  pull-requests: write
 
-  list: # make sure the action works on a clean machine without building
+# run integrated tests
+jobs:
+  list:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
       - id: list
@@ -33,6 +26,7 @@ jobs:
 
   fuzz:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: list
     strategy:
       fail-fast: false
@@ -40,9 +34,18 @@ jobs:
         include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
     steps:
       - uses: actions/checkout@v3
-      - uses: ./run/
+      - id: fuzz
+        uses: ./run/
         with:
+          base-branch: main
           working-directory: "__tests__/testdata/fuzz"
           packages: ${{ matrix.package }}
           fuzz-regexp: ${{ matrix.func }}
           fuzz-time: 5s
+
+      - name: cleanup
+        if: steps.fuzz.outputs.found
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr close --delete-branch ${{ steps.fuzz.outputs.pull-request-number }}
