@@ -12,6 +12,7 @@ permissions:
 jobs:
   # make sure build/ci work properly
   build:
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -33,6 +34,7 @@ jobs:
 
   list: # make sure the action works on a clean machine without building
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
       - id: list
@@ -44,6 +46,7 @@ jobs:
 
   fuzz:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: list
     strategy:
       fail-fast: false
