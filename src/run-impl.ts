@@ -1,7 +1,6 @@
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as http from "@actions/http-client";
-import * as path from "path";
 import * as crypto from "crypto";
 import fs from "fs/promises";
 
@@ -96,7 +95,7 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
 
   // create a new branch
   const packageName = await getPackageName(options);
-  const segments = corpus.split(path.sep);
+  const segments = corpus.split("/");
   const testFunc = segments[segments.length - 2];
   const testCorpus = segments[segments.length - 1];
   const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
@@ -202,15 +201,13 @@ async function getNewCorpus(options: FuzzOptions): Promise<string | undefined> {
     cwd
   );
   const testdata = output.stdout.split("\n").filter((file) => {
-    {
-      const segments = file.split(path.sep);
-      return (
-        segments.length >= 4 &&
-        segments[segments.length - 4] === "testdata" &&
-        segments[segments.length - 3] === "fuzz" &&
-        segments[segments.length - 2].startsWith("Fuzz")
-      );
-    }
+    const segments = file.split("/");
+    return (
+      segments.length >= 4 &&
+      segments[segments.length - 4] === "testdata" &&
+      segments[segments.length - 3] === "fuzz" &&
+      segments[segments.length - 2].startsWith("Fuzz")
+    );
   });
   if (testdata.length !== 1) {
     return undefined;
