@@ -1,7 +1,16 @@
 import * as core from "@actions/core";
-import { fuzz } from "./run-impl";
+import { fuzz, restoreCache, saveCache } from "./run-impl";
 
 async function run(): Promise<void> {
+  try {
+    await core.group("restore cache", async () => {
+      await restoreCache();
+    });
+  } catch (error) {
+    core.warning("error while restoring cache.");
+    if (error instanceof Error) core.warning(error.message);
+  }
+
   try {
     const repository = core.getInput("repository");
     const githubToken = core.getInput("token");
@@ -39,6 +48,15 @@ async function run(): Promise<void> {
     core.setOutput("pull-request-url", result.pullRequestUrl);
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
+  }
+
+  try {
+    await core.group("save cache", async () => {
+      await saveCache();
+    });
+  } catch (error) {
+    core.warning("error while saving cache.");
+    if (error instanceof Error) core.warning(error.message);
   }
 }
 

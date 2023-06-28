@@ -1,6 +1,7 @@
 import * as core from "@actions/core";
 import * as exec from "@actions/exec";
 import * as http from "@actions/http-client";
+import * as cache from "@actions/cache";
 import * as crypto from "crypto";
 import fs from "fs/promises";
 
@@ -66,6 +67,17 @@ export async function fuzz(options: FuzzOptions): Promise<FuzzResult> {
     pullRequestNumber: result.pullRequestNumber,
     pullRequestUrl: result.pullRequestUrl,
   };
+}
+
+export async function restoreCache(): Promise<void> {
+  const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
+  await cache.restoreCache([`${cachePath}/fuzz`], "go-fuzz-", []);
+}
+
+export async function saveCache(): Promise<void> {
+  const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
+  const id = await getHeadRef();
+  await cache.saveCache([`${cachePath}/fuzz`], `go-fuzz-${id}`);
 }
 
 interface GenerateReportResult {
