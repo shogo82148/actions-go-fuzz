@@ -4020,10 +4020,34 @@ async function generateReport(options) {
     const testCorpus = segments[segments.length - 1];
     const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
     const oid = await getHeadRef();
-    await createBranch(client, options, repositoryId, branchName, oid);
-    await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
-    const ret = await promises_1.default.readFile(corpus);
-    ret.toString("base64");
+    await createBranch(client, options, { repositoryId, name: `refs/heads/${branchName}`, oid });
+    const testResult = await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
+    const contents = await promises_1.default.readFile(corpus);
+    // create a new commit
+    await createCommit(client, options, {
+        branch: {
+            repositoryNameWithOwner: options.repository,
+            branchName,
+        },
+        fileChanges: {
+            additions: [
+                {
+                    path: corpus,
+                    contents: contents.toString("base64"),
+                },
+            ],
+            deletions: [],
+        },
+        expectedHeadOid: oid,
+        message: `A failure occurred while fuzzing with ${testFunc} in ${packageName}.
+
+${"`"}go test -run=${testFunc}/${testCorpus} ${options.packages}${"`"} failed with the following output:
+
+${"```"}
+${testResult.stdout}
+${"```"}
+`,
+    });
     // cleanup
     await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
     await promises_1.default.unlink(corpus);
@@ -4057,6 +4081,7 @@ async function getNewCorpus(options) {
 async function getRepositoryId(client, options) {
     const [owner, name] = options.repository.split("/");
     const query = {
+        // ref. https://docs.github.com/en/graphql/reference/queries#repository
         query: `query ($owner: String!, $name: String!) {
       repository(owner: $owner, name: $name) {
         id
@@ -4082,24 +4107,37 @@ async function getPackageName(options) {
     const pkg = output.stdout.trim();
     return pkg;
 }
-async function createBranch(client, options, repositoryId, name, oid) {
+async function createBranch(client, options, input) {
     const query = {
+        // ref. https://docs.github.com/en/graphql/reference/mutations#createref
         query: `mutation ($input: CreateRefInput!) {
       createRef(input: $input) {
         clientMutationId
       }
     }`,
         variables: {
-            input: {
-                repositoryId,
-                name: `refs/heads/${name}`,
-                oid,
-            },
+            input,
         },
     };
-    core.info(JSON.stringify(query));
+    core.debug(`create a branch request: ${JSON.stringify(query)}`);
     const response = await client.postJson(options.githubGraphqlUrl, query);
-    core.info(JSON.stringify(response));
+    core.debug(`create a branch response: ${JSON.stringify(response)}`);
+}
+async function createCommit(client, options, input) {
+    const query = {
+        // https://docs.github.com/en/graphql/reference/mutations#createcommitonbranch
+        query: `mutation ($input: CreateCommitOnBranchInput!) {
+      createCommitOnBranch(input: $input) {
+        commit { url }
+      }
+    }`,
+        variables: {
+            input,
+        },
+    };
+    core.debug(`create a commit request: ${JSON.stringify(query)}`);
+    const response = await client.postJson(options.githubGraphqlUrl, query);
+    core.debug(`create a commit response: ${JSON.stringify(response)}`);
 }
 
 

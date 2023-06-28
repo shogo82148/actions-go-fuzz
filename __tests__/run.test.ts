@@ -51,6 +51,19 @@ test("found fuzz", async () => {
     )
   );
 
+  // result of creating a new commit.
+  mockClient.mockReturnValueOnce(
+    new Promise<TypedResponse<any>>((resolve) =>
+      resolve({
+        statusCode: 200,
+        result: {
+          /* TODO: fill me! */
+        },
+        headers: {} as IncomingHttpHeaders,
+      })
+    )
+  );
+
   const workingDirectory = path.join(__dirname, "testdata/fuzz");
   const opts = {
     repository: "shogo82148/actions-go-fuzz",

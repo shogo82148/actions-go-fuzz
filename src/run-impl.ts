@@ -80,10 +80,13 @@ async function generateReport(options: FuzzOptions): Promise<void> {
   const oid = await getHeadRef();
   await createBranch(client, options, { repositoryId, name: `refs/heads/${branchName}`, oid });
 
-  await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
+  const testResult = await exec.getExecOutput(
+    "go",
+    ["test", `-run=${testFunc}/${testCorpus}`, options.packages],
+    ignoreReturnCode
+  );
 
-  const ret = await fs.readFile(corpus);
-  ret.toString("base64");
+  const contents = await fs.readFile(corpus);
 
   // create a new commit
   await createCommit(client, options, {
@@ -92,11 +95,23 @@ async function generateReport(options: FuzzOptions): Promise<void> {
       branchName,
     },
     fileChanges: {
-      additions: [],
+      additions: [
+        {
+          path: corpus,
+          contents: contents.toString("base64"),
+        },
+      ],
       deletions: [],
     },
     expectedHeadOid: oid,
-    message: "",
+    message: `A failure occurred while fuzzing with ${testFunc} in ${packageName}.
+
+${"`"}go test -run=${testFunc}/${testCorpus} ${options.packages}${"`"} failed with the following output:
+
+${"```"}
+${testResult.stdout}
+${"```"}
+`,
   });
 
   // cleanup
