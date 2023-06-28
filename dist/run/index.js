@@ -4221,7 +4221,7 @@ async function run() {
         const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
         const githubRunId = process.env["GITHUB_RUN_ID"];
         const githubRunAttempt = process.env["GITHUB_RUN_ATTEMPT"];
-        const baseBranch = process.env["GITHUB_REF_NAME"] || "main";
+        const baseBranch = core.getInput("base-branch") || process.env["GITHUB_REF_NAME"] || "main";
         const packages = core.getInput("packages").trim();
         const workingDirectory = core.getInput("working-directory");
         const fuzzRegexp = core.getInput("fuzz-regexp");
