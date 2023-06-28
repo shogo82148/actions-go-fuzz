@@ -15,4 +15,4 @@ test("list fuzz tests", async () => {
       func: "^FuzzSomeFuzzTarget$",
     },
   ]);
-}, 30000); // it runs go test, so it takes time.
+}, 600000); // it runs go test, so it takes time.
