@@ -39,6 +39,16 @@ inputs:
     required: true
     default: "actions-go-fuzz"
 
+outputs:
+  found:
+    description: "true if new crashers are found"
+  head-branch:
+    description: "the name of the head branch of the pull request the action created"
+  pull-request-number:
+    description: "the number of the pull request the action created"
+  pull-request-url:
+    description: "the URL of the pull request the action created"
+
 runs:
   using: "node16"
   main: "../dist/run/index.js"

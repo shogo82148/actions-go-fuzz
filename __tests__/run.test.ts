@@ -1,9 +1,7 @@
 import path from "path";
-import { test, jest } from "@jest/globals";
+import { test, jest, expect } from "@jest/globals";
 import { HttpClient } from "@actions/http-client";
 import { fuzz } from "../src/run-impl";
-import { IncomingHttpHeaders } from "http";
-import { TypedResponse } from "@actions/http-client/lib/interfaces";
 
 test("no error", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
@@ -23,7 +21,7 @@ test("no error", async () => {
     fuzzTime: "5s",
     fuzzMinimizeTime: "1s",
     workingDirectory,
-    headBranchPrefix: "actions-go-fuzz/",
+    headBranchPrefix: "actions-go-fuzz",
   };
   await fuzz(opts);
 }, 600000); // it runs go test, so it takes time.
@@ -32,54 +30,66 @@ test("found fuzz", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
 
   // return repository id
-  mockClient.mockReturnValueOnce(
-    new Promise<TypedResponse<any>>((resolve) =>
-      resolve({
-        statusCode: 200,
-        result: { data: { repository: { object: { oid: "R_kgDOJzylxw" } } } },
-        headers: {} as IncomingHttpHeaders,
-      })
-    )
-  );
+  mockClient.mockImplementationOnce(async (_url: string, _query: any) => {
+    return {
+      statusCode: 200,
+      result: { data: { repository: { id: "R_kgDOJzylxw" } } },
+      headers: {},
+    };
+  });
 
   // result of creating a branch
-  mockClient.mockReturnValueOnce(
-    new Promise<TypedResponse<any>>((resolve) =>
-      resolve({
-        statusCode: 200,
-        result: {
-          /* TODO: fill me! */
-        },
-        headers: {} as IncomingHttpHeaders,
-      })
-    )
-  );
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
+    expect(query.variables.input.repositoryId).toEqual("R_kgDOJzylxw");
+    return {
+      statusCode: 200,
+      result: {
+        clientMutationId: "1a768471-4725-4024-ba8e-339dd3f33dce",
+      },
+      headers: {},
+    };
+  });
 
   // result of creating a new commit.
-  mockClient.mockReturnValueOnce(
-    new Promise<TypedResponse<any>>((resolve) =>
-      resolve({
-        statusCode: 200,
-        result: {
-          /* TODO: fill me! */
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
+    expect(query.variables.input.branch.repositoryNameWithOwner).toEqual("shogo82148/actions-go-fuzz");
+    expect(query.variables.input.branch.branchName).toMatch(/^actions-go-fuzz\/example\/fuzz\/FuzzReverse/);
+    return {
+      statusCode: 200,
+      result: {
+        data: {
+          clientMutationId: "1a768471-4725-4024-ba8e-339dd3f33dce",
+          createCommitOnBranch: {
+            commit: {
+              oid: "c1d01d6c281fc1f24ca2368de0bced4ba72b24ea",
+            },
+          },
         },
-        headers: {} as IncomingHttpHeaders,
-      })
-    )
-  );
+      },
+      headers: {},
+    };
+  });
 
   // result of creating a new pull request.
-  mockClient.mockReturnValueOnce(
-    new Promise<TypedResponse<any>>((resolve) =>
-      resolve({
-        statusCode: 200,
-        result: {
-          /* TODO: fill me! */
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
+    expect(query.variables.input.repositoryId).toEqual("R_kgDOJzylxw");
+    expect(query.variables.input.headRepositoryId).toEqual("R_kgDOJzylxw");
+    return {
+      statusCode: 200,
+      result: {
+        data: {
+          clientMutationId: "1a768471-4725-4024-ba8e-339dd3f33dce",
+          createPullRequest: {
+            pullRequest: {
+              number: 1,
+              url: "https://github.com/shogo82148/actions-go-fuzz/pull/1",
+            },
+          },
         },
-        headers: {} as IncomingHttpHeaders,
-      })
-    )
-  );
+      },
+      headers: {},
+    };
+  });
 
   const workingDirectory = path.join(__dirname, "testdata/fuzz");
   const opts = {
@@ -95,7 +105,10 @@ test("found fuzz", async () => {
     fuzzTime: "30s",
     fuzzMinimizeTime: "1s",
     workingDirectory,
-    headBranchPrefix: "actions-go-fuzz/",
+    headBranchPrefix: "actions-go-fuzz",
   };
-  await fuzz(opts);
+  const result = await fuzz(opts);
+  expect(result.headBranch).toMatch(/^actions-go-fuzz\/example\/fuzz\/FuzzReverse/);
+  expect(result.pullRequestNumber).toEqual(1);
+  expect(result.pullRequestUrl).toEqual("https://github.com/shogo82148/actions-go-fuzz/pull/1");
 }, 600000); // it runs go test, so it takes time.

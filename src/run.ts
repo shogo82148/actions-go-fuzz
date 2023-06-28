@@ -9,7 +9,7 @@ async function run(): Promise<void> {
     const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
     const githubRunId = process.env["GITHUB_RUN_ID"];
     const githubRunAttempt = process.env["GITHUB_RUN_ATTEMPT"];
-    const baseBranch = core.getInput("base-branch") || process.env["GITHUB_REF_NAME"] || "main";
+    const baseBranch = core.getInput("base-branch") || process.env["GITHUB_HEAD_REF"] || "main";
     const packages = core.getInput("packages").trim();
     const workingDirectory = core.getInput("working-directory");
     const fuzzRegexp = core.getInput("fuzz-regexp");
@@ -32,7 +32,11 @@ async function run(): Promise<void> {
       headBranchPrefix,
     };
 
-    await fuzz(options);
+    const result = await fuzz(options);
+    core.setOutput("found", result.found);
+    core.setOutput("head-branch", result.headBranch);
+    core.setOutput("pull-request-number", result.pullRequestNumber);
+    core.setOutput("pull-request-url", result.pullRequestUrl);
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
   }
