@@ -78,12 +78,26 @@ async function generateReport(options: FuzzOptions): Promise<void> {
   const testCorpus = segments[segments.length - 1];
   const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
   const oid = await getHeadRef();
-  await createBranch(client, options, repositoryId, branchName, oid);
+  await createBranch(client, options, { repositoryId, name: `refs/heads/${branchName}`, oid });
 
   await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
 
   const ret = await fs.readFile(corpus);
   ret.toString("base64");
+
+  // create a new commit
+  await createCommit(client, options, {
+    branch: {
+      repositoryNameWithOwner: options.repository,
+      branchName,
+    },
+    fileChanges: {
+      additions: [],
+      deletions: [],
+    },
+    expectedHeadOid: oid,
+    message: "",
+  });
 
   // cleanup
   await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
@@ -128,6 +142,7 @@ async function getNewCorpus(options: FuzzOptions): Promise<string | undefined> {
 async function getRepositoryId(client: http.HttpClient, options: FuzzOptions): Promise<string> {
   const [owner, name] = options.repository.split("/");
   const query = {
+    // ref. https://docs.github.com/en/graphql/reference/queries#repository
     query: `query ($owner: String!, $name: String!) {
       repository(owner: $owner, name: $name) {
         id
@@ -165,29 +180,62 @@ async function getPackageName(options: FuzzOptions): Promise<string> {
   return pkg;
 }
 
-async function createBranch(
-  client: http.HttpClient,
-  options: FuzzOptions,
-  repositoryId: string,
-  name: string,
-  oid: string
-): Promise<void> {
+interface CreateBranchInput {
+  repositoryId: string;
+  name: string;
+  oid: string;
+}
+
+async function createBranch(client: http.HttpClient, options: FuzzOptions, input: CreateBranchInput): Promise<void> {
   const query = {
+    // ref. https://docs.github.com/en/graphql/reference/mutations#createref
     query: `mutation ($input: CreateRefInput!) {
       createRef(input: $input) {
         clientMutationId
       }
     }`,
     variables: {
-      input: {
-        repositoryId,
-        name: `refs/heads/${name}`,
-        oid,
-      },
+      input,
     },
   };
-  core.info(JSON.stringify(query));
+  core.debug(`create a branch request: ${JSON.stringify(query)}`);
 
   const response = await client.postJson(options.githubGraphqlUrl, query);
-  core.info(JSON.stringify(response));
+  core.debug(`create a branch response: ${JSON.stringify(response)}`);
+}
+
+interface CreateCommitInput {
+  branch: {
+    repositoryNameWithOwner: string;
+    branchName: string;
+  };
+  fileChanges: {
+    additions: {
+      path: string;
+      contents: string;
+    }[];
+    deletions: {
+      path: string;
+    }[];
+  };
+  expectedHeadOid: string;
+  message: string;
+}
+
+async function createCommit(client: http.HttpClient, options: FuzzOptions, input: CreateCommitInput): Promise<void> {
+  const query = {
+    // https://docs.github.com/en/graphql/reference/mutations#createcommitonbranch
+    query: `mutation ($input: CreateCommitOnBranchInput!) {
+      createCommitOnBranch(input: $input) {
+        commit { url }
+      }
+    }`,
+    variables: {
+      input,
+    },
+  };
+  core.debug(`create a commit request: ${JSON.stringify(query)}`);
+
+  const response = await client.postJson(options.githubGraphqlUrl, query);
+  core.debug(`create a commit response: ${JSON.stringify(response)}`);
 }
