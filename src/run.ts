@@ -1,9 +1,18 @@
 import * as core from "@actions/core";
-import { fuzz, restoreCache } from "./run-impl";
+import { fuzz, ReportMethodType, restoreCache } from "./run-impl";
+
+function getReportMethod(): ReportMethodType {
+  const method = core.getInput("report-method");
+  if (method !== "pull-request" && method !== "security-vulnerability") {
+    throw new Error("report-method must be either pull-request or security-vulnerability");
+  }
+  return method;
+}
 
 async function run(): Promise<void> {
   const repository = core.getInput("repository");
   const githubToken = core.getInput("token");
+  const githubApiUrl = process.env["GITHUB_API_URL"] || "https://api.github.com";
   const githubGraphqlUrl = process.env["GITHUB_GRAPHQL_URL"] || "https://api.github.com/graphql";
   const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
   const githubRunId = process.env["GITHUB_RUN_ID"];
@@ -13,11 +22,14 @@ async function run(): Promise<void> {
   const workingDirectory = core.getInput("working-directory");
   const fuzzRegexp = core.getInput("fuzz-regexp");
   const fuzzTime = core.getInput("fuzz-time");
+  const reportMethod = getReportMethod();
   const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
   const headBranchPrefix = core.getInput("head-branch-prefix").trim();
+
   const options = {
     repository,
     githubToken,
+    githubApiUrl,
     githubGraphqlUrl,
     githubServerUrl,
     githubRunId,
@@ -27,6 +39,7 @@ async function run(): Promise<void> {
     workingDirectory,
     fuzzRegexp,
     fuzzTime,
+    reportMethod,
     fuzzMinimizeTime,
     headBranchPrefix,
   };
