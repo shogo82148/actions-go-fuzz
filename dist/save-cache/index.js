@@ -58772,6 +58772,8 @@ const cache = __importStar(__nccwpck_require__(7799));
 const crypto = __importStar(__nccwpck_require__(6113));
 const promises_1 = __importDefault(__nccwpck_require__(3292));
 async function fuzz(options) {
+    const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+    // start fuzzing
     const exitCode = await core.group("fuzzing", async () => {
         return await exec.exec("go", [
             "test",
@@ -58782,21 +58784,32 @@ async function fuzz(options) {
         ], { cwd: options.workingDirectory, ignoreReturnCode: true });
     });
     if (exitCode === 0) {
+        // no fuzzing error, exit
         core.info("no fuzzing error");
         return {
             found: false,
         };
     }
     core.info("fuzzing error occurred");
-    const result = await core.group("generate report", async () => {
+    // generate report
+    const report = await core.group("generating report", async () => {
         return await generateReport(options);
     });
-    if (result == null) {
-        core.info("no new corpus found");
+    if (report == null) {
+        core.info("no new fuzzing input found");
         return {
             found: false,
         };
     }
+    // send the report
+    const result = await core.group("send the report", async () => {
+        return sendReport(options, report);
+    });
+    // cleanup
+    await core.group("cleanup", async () => {
+        await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
+        await promises_1.default.unlink(report.newInputPath);
+    });
     return {
         found: true,
         headBranch: result.headBranch,
@@ -58821,13 +58834,29 @@ async function saveCache(options) {
 }
 exports.saveCache = saveCache;
 async function generateReport(options) {
-    // const cwd = { cwd: options.workingDirectory };
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
-    const corpus = await getNewCorpus(options);
-    if (corpus == null) {
+    const input = await getNewInput(options);
+    if (input == null) {
         return null;
     }
-    core.info(`new corpus found: ${corpus}`);
+    core.info(`new input found: ${input}`);
+    const packageName = await getPackageName(options);
+    const segments = input.split("/");
+    const testFunc = segments[segments.length - 2];
+    const newInputName = segments[segments.length - 1];
+    const testResult = await exec.getExecOutput("go", ["test", `-run=${testFunc}/${newInputName}`, options.packages], ignoreReturnCode);
+    const contents = await promises_1.default.readFile(input);
+    return {
+        packageName,
+        newInputPath: input,
+        newInputContents: contents,
+        newInputName,
+        testFunc,
+        testCommand: `go test -run=${testFunc}/${newInputName} ${options.packages}`,
+        testResult: testResult.stdout,
+    };
+}
+async function sendReport(options, report) {
     const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
         headers: {
             Authorization: `Bearer ${options.githubToken}`,
@@ -58837,11 +58866,7 @@ async function generateReport(options) {
     const repositoryId = await getRepositoryId(client, options);
     core.debug(`repositoryId: ${repositoryId}`);
     // create a new branch
-    const packageName = await getPackageName(options);
-    const segments = corpus.split("/");
-    const testFunc = segments[segments.length - 2];
-    const testCorpus = segments[segments.length - 1];
-    const branchName = `${options.headBranchPrefix}/${packageName}/${testFunc}/${testCorpus}`;
+    const branchName = `${options.headBranchPrefix}/${report.packageName}/${report.testFunc}/${report.newInputName}`;
     const oid = await getHeadRef();
     await createBranch(client, options, {
         clientMutationId: newClientMutationId(),
@@ -58849,8 +58874,6 @@ async function generateReport(options) {
         name: `refs/heads/${branchName}`,
         oid,
     });
-    const testResult = await exec.getExecOutput("go", ["test", `-run=${testFunc}/${testCorpus}`, options.packages], ignoreReturnCode);
-    const contents = await promises_1.default.readFile(corpus);
     // create a new commit
     await createCommit(client, options, {
         clientMutationId: newClientMutationId(),
@@ -58861,19 +58884,19 @@ async function generateReport(options) {
         fileChanges: {
             additions: [
                 {
-                    path: corpus,
-                    contents: contents.toString("base64"),
+                    path: report.newInputPath,
+                    contents: report.newInputContents.toString("base64"),
                 },
             ],
             deletions: [],
         },
         expectedHeadOid: oid,
         message: {
-            headline: `Add a new fuzz input data for ${testFunc} in ${packageName}.`,
-            body: `${"`"}go test -run=${testFunc}/${testCorpus} ${options.packages}${"`"} failed with the following output:
+            headline: `Add a new fuzz input data for ${report.testFunc} in ${report.packageName}.`,
+            body: `${"`"}${report.testCommand}${"`"} failed with the following output:
 
 ${"```"}
-${testResult.stdout}
+${report.testResult}
 ${"```"}
 
 This fuzz data is generated by [actions-go-fuzz](https://github.com/shogo82148/actions-go-fuzz).
@@ -58892,11 +58915,11 @@ This fuzz data is generated by [actions-go-fuzz](https://github.com/shogo82148/a
         headRefName: branchName,
         maintainerCanModify: true,
         draft: false,
-        title: `${testFunc} in the package ${packageName} failed`,
-        body: `${"`"}go test -run=${testFunc}/${testCorpus} ${options.packages}${"`"} failed with the following output:
+        title: `${report.testFunc} in the package ${report.packageName} failed`,
+        body: `${"`"}${report.testCommand}${"`"} failed with the following output:
 
 ${"```"}
-${testResult.stdout}
+${report.testResult}
 ${"```"}
 
 ---
@@ -58905,16 +58928,13 @@ This pull request is generated by [actions-go-fuzz](https://github.com/shogo8214
 ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
 `,
     });
-    // cleanup
-    await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
-    await promises_1.default.unlink(corpus);
     return {
         headBranch: branchName,
         pullRequestNumber: pullRequest.data.createPullRequest.pullRequest.number,
         pullRequestUrl: pullRequest.data.createPullRequest.pullRequest.url,
     };
 }
-async function getNewCorpus(options) {
+async function getNewInput(options) {
     const cwd = { cwd: options.workingDirectory };
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     // check whether there is any changes.
