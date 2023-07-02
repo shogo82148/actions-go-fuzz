@@ -343,7 +343,11 @@ async function reportSecurityVulnerability(
   options: FuzzOptions,
   input: ReportSecurityVulnerabilityInput
 ): Promise<void> {
-  await client.postJson(`${options.githubApiUrl}/repos/${options.repository}/security/advisories`, input);
+  const response = await client.postJson(
+    `${options.githubApiUrl}/repos/${options.repository}/security/advisories`,
+    input
+  );
+  core.debug(`reportSecurityVulnerability: ${JSON.stringify(response)}`);
   return;
 }
 
