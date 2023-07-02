@@ -344,7 +344,7 @@ async function reportSecurityVulnerability(
   input: ReportSecurityVulnerabilityInput
 ): Promise<void> {
   const response = await client.postJson(
-    `${options.githubApiUrl}/repos/${options.repository}/security/advisories`,
+    `${options.githubApiUrl}/repos/${options.repository}/security-advisories/reports`,
     input
   );
   core.debug(`reportSecurityVulnerability: ${JSON.stringify(response)}`);

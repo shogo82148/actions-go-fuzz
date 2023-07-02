@@ -58995,7 +58995,7 @@ async function getPackageName(options) {
     return pkg;
 }
 async function reportSecurityVulnerability(client, options, input) {
-    const response = await client.postJson(`${options.githubApiUrl}/repos/${options.repository}/security/advisories`, input);
+    const response = await client.postJson(`${options.githubApiUrl}/repos/${options.repository}/security-advisories/reports`, input);
     core.debug(`reportSecurityVulnerability: ${JSON.stringify(response)}`);
     return;
 }
