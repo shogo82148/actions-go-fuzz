@@ -1,7 +1,7 @@
 import path from "path";
 import { test, jest, expect } from "@jest/globals";
 import { HttpClient } from "@actions/http-client";
-import { fuzz } from "../src/run-impl";
+import { fuzz, ReportMethod } from "../src/run-impl";
 
 test("no error", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
@@ -11,6 +11,7 @@ test("no error", async () => {
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
+    githubApiUrl: "https://api.github.com",
     githubGraphqlUrl: "https://api.github.com/graphql",
     githubServerUrl: "https://github.com",
     githubRunId: "123456789",
@@ -20,6 +21,7 @@ test("no error", async () => {
     fuzzRegexp: "^FuzzSomeFuzzTarget$",
     fuzzTime: "5s",
     fuzzMinimizeTime: "1s",
+    reportMethod: ReportMethod.PullRequest,
     workingDirectory,
     headBranchPrefix: "actions-go-fuzz",
   };
@@ -95,6 +97,7 @@ test("found fuzz", async () => {
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
+    githubApiUrl: "https://api.github.com",
     githubGraphqlUrl: "https://api.github.com/graphql",
     githubServerUrl: "https://github.com",
     githubRunId: "123456789",
@@ -104,6 +107,7 @@ test("found fuzz", async () => {
     fuzzRegexp: "^FuzzReverse$",
     fuzzTime: "30s",
     fuzzMinimizeTime: "1s",
+    reportMethod: ReportMethod.PullRequest,
     workingDirectory,
     headBranchPrefix: "actions-go-fuzz",
   };
