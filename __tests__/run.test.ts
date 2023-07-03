@@ -112,3 +112,64 @@ test("found fuzz", async () => {
   expect(result.pullRequestNumber).toEqual(1);
   expect(result.pullRequestUrl).toEqual("https://github.com/shogo82148/actions-go-fuzz/pull/1");
 }, 600000); // it runs go test, so it takes time.
+
+test("permission error during creating a branch", async () => {
+  const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
+
+  // return repository id
+  mockClient.mockImplementationOnce(async (_url: string, _query: any) => {
+    return {
+      statusCode: 200,
+      result: { data: { repository: { id: "R_kgDOJzylxw" } } },
+      headers: {},
+    };
+  });
+
+  // result of creating a branch
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
+    expect(query.variables.input.repositoryId).toEqual("R_kgDOJzylxw");
+    return {
+      statusCode: 200,
+      result: {
+        data: {
+          createRef: null,
+        },
+        errors: [
+          {
+            type: "FORBIDDEN",
+            path: ["createRef"],
+            extensions: {
+              saml_failure: false,
+            },
+            locations: [
+              {
+                line: 2,
+                column: 7,
+              },
+            ],
+            message: "Resource not accessible by integration",
+          },
+        ],
+      },
+      headers: {},
+    };
+  });
+
+  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const opts = {
+    repository: "shogo82148/actions-go-fuzz",
+    githubToken: "dummy",
+    githubGraphqlUrl: "https://api.github.com/graphql",
+    githubServerUrl: "https://github.com",
+    githubRunId: "123456789",
+    githubRunAttempt: "1",
+    baseBranch: "main",
+    packages: "example/fuzz",
+    fuzzRegexp: "^FuzzReverse$",
+    fuzzTime: "30s",
+    fuzzMinimizeTime: "1s",
+    workingDirectory,
+    headBranchPrefix: "actions-go-fuzz",
+  };
+  await expect(fuzz(opts)).rejects.toThrowError("failed to create a branch");
+}, 600000); // it runs go test, so it takes time.

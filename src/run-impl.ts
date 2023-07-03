@@ -394,8 +394,12 @@ async function createBranch(
   }
   if (response.result.errors != null) {
     for (const error of response.result.errors) {
-      core.error(error.message);
+      core.error(`failed to create a branch: ${error.message}`);
     }
+    core.error(
+      "please check whether the GitHub token has the write permission to the repository. " +
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+    );
     throw new Error("failed to create a branch");
   }
   return response.result;
@@ -470,8 +474,12 @@ async function createCommit(
   }
   if (response.result.errors != null) {
     for (const error of response.result.errors) {
-      core.error(error.message);
+      core.error(`failed to create a commit: ${error.message}`);
     }
+    core.error(
+      "please check whether the GitHub token has the write permission to the repository. " +
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+    );
     throw new Error("failed to create a commit");
   }
   return response.result;
@@ -538,8 +546,12 @@ async function createPullRequest(
   }
   if (response.result.errors != null) {
     for (const error of response.result.errors) {
-      core.error(error.message);
+      core.error(`failed to create a pull request: ${error.message}`);
     }
+    core.error(
+      "please check whether the GitHub token has the write permission to the repository. " +
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+    );
     throw new Error("failed to create a pull request");
   }
   return response.result;
