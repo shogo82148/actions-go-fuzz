@@ -5,6 +5,13 @@ import * as cache from "@actions/cache";
 import * as crypto from "crypto";
 import fs from "fs/promises";
 
+export const ReportMethod = {
+  PullRequest: "pull-request",
+  Slack: "slack",
+} as const;
+
+export type ReportMethodType = (typeof ReportMethod)[keyof typeof ReportMethod];
+
 interface FuzzOptions {
   repository: string;
   githubToken: string;
@@ -18,7 +25,15 @@ interface FuzzOptions {
   fuzzRegexp: string;
   fuzzTime: string;
   fuzzMinimizeTime: string;
+  reportMethod: ReportMethodType;
   headBranchPrefix: string;
+  webhookUrl: string;
+}
+
+interface SaveCacheOptions {
+  packages: string;
+  workingDirectory: string;
+  fuzzRegexp: string;
 }
 
 interface FuzzResult {
@@ -78,29 +93,17 @@ export async function fuzz(options: FuzzOptions): Promise<FuzzResult> {
     await fs.unlink(report.newInputPath);
   });
 
-  if (result == null) {
-    // in case of the report is already sent on another job.
-    return {
-      found: false,
-    };
-  }
-
-  return {
-    found: true,
-    headBranch: result.headBranch,
-    pullRequestNumber: result.pullRequestNumber,
-    pullRequestUrl: result.pullRequestUrl,
-  };
+  return result;
 }
 
-export async function restoreCache(options: FuzzOptions): Promise<void> {
+export async function restoreCache(options: SaveCacheOptions): Promise<void> {
   const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
   const packageName = await getPackageName(options);
   const os = process.env["RUNNER_OS"] || "Unknown";
   await cache.restoreCache([`${cachePath}/fuzz`], `go-fuzz-${os}-${packageName}-${options.fuzzRegexp}-`, []);
 }
 
-export async function saveCache(options: FuzzOptions): Promise<void> {
+export async function saveCache(options: SaveCacheOptions): Promise<void> {
   const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
   const packageName = await getPackageName(options);
   const id = await getHeadRef();
@@ -117,6 +120,9 @@ interface GenerateReportResult {
 
   // newInputContents is the contents of the new input that fails the fuzz test.
   newInputContents: Buffer;
+
+  // patch is the patch to reproduce the test failure.
+  patch: string;
 
   // newInputName is the name of NewInputPath.
   newInputName: string;
@@ -142,7 +148,7 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
 
   const packageName = await getPackageName(options);
 
-  const segments = input.split("/");
+  const segments = input.path.split("/");
   const testFunc = segments[segments.length - 2];
   const newInputName = segments[segments.length - 1];
 
@@ -152,11 +158,12 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
     ignoreReturnCode
   );
 
-  const contents = await fs.readFile(input);
+  const contents = await fs.readFile(input.path);
 
   return {
     packageName,
-    newInputPath: input,
+    patch: input.patch,
+    newInputPath: input.path,
     newInputContents: contents,
     newInputName,
     testFunc,
@@ -165,13 +172,16 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
   };
 }
 
-interface SendReportResult {
-  headBranch: string;
-  pullRequestNumber: number;
-  pullRequestUrl: string;
+async function sendReport(options: FuzzOptions, report: GenerateReportResult): Promise<FuzzResult> {
+  switch (options.reportMethod) {
+    case ReportMethod.PullRequest:
+      return await sendReportViaPR(options, report);
+    case ReportMethod.Slack:
+      return await sendReportViaSlack(options, report);
+  }
 }
 
-async function sendReport(options: FuzzOptions, report: GenerateReportResult): Promise<SendReportResult | null> {
+async function sendReportViaPR(options: FuzzOptions, report: GenerateReportResult): Promise<FuzzResult> {
   const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
     headers: {
       Authorization: `Bearer ${options.githubToken}`,
@@ -192,7 +202,9 @@ async function sendReport(options: FuzzOptions, report: GenerateReportResult): P
   });
   if (createBranchResult == null) {
     core.info("the report already exists. skip to report a new fuzz input.");
-    return null;
+    return {
+      found: false,
+    };
   }
 
   // create a new commit
@@ -253,21 +265,30 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
   });
 
   return {
+    found: true,
     headBranch: branchName,
     pullRequestNumber: pullRequest.data.createPullRequest.pullRequest.number,
     pullRequestUrl: pullRequest.data.createPullRequest.pullRequest.url,
   };
 }
 
-async function getNewInput(options: FuzzOptions): Promise<string | undefined> {
+interface GetNewInputOutput {
+  path: string;
+  patch: string;
+}
+
+async function getNewInput(options: FuzzOptions): Promise<GetNewInputOutput | null> {
   const cwd = { cwd: options.workingDirectory };
   const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+
+  // get the top level directory of the working directory.
+  const topLevel = (await exec.getExecOutput("git", ["rev-parse", "--show-toplevel"], cwd)).stdout.trim();
 
   // check whether there is any changes.
   await exec.exec("git", ["add", "."], cwd);
   const hasChange = await exec.exec("git", ["diff", "--cached", "--exit-code", "--quiet"], ignoreReturnCode);
   if (hasChange === 0) {
-    return undefined;
+    return null;
   }
 
   // find new test corpus.
@@ -286,9 +307,19 @@ async function getNewInput(options: FuzzOptions): Promise<string | undefined> {
     );
   });
   if (testdata.length !== 1) {
-    return undefined;
+    return null;
   }
-  return testdata[0];
+
+  const newInput = testdata[0];
+
+  // get the patch of the new test corpus.
+  const patch = (await exec.getExecOutput("git", ["diff", "--cached", newInput], { cwd: topLevel })).stdout;
+
+  // get the contents of the new test corpus.
+  return {
+    path: newInput,
+    patch,
+  };
 }
 
 // getRepositoryId gets the repository id from GitHub GraphQL API.
@@ -334,7 +365,12 @@ async function getHeadRef(): Promise<string> {
   return output.stdout.trim();
 }
 
-async function getPackageName(options: FuzzOptions): Promise<string> {
+interface GetPackageOptions {
+  packages: string;
+  workingDirectory: string;
+}
+
+async function getPackageName(options: GetPackageOptions): Promise<string> {
   const output = await exec.getExecOutput("go", ["list", options.packages], { cwd: options.workingDirectory });
   const pkg = output.stdout.trim();
   return pkg;
@@ -572,4 +608,57 @@ async function createPullRequest(
     throw new Error("failed to create a pull request");
   }
   return response.result;
+}
+
+async function sendReportViaSlack(options: FuzzOptions, report: GenerateReportResult): Promise<FuzzResult> {
+  const logUrl =
+    options.githubRunId != null && options.githubRunAttempt != null
+      ? `${options.githubServerUrl}/${options.repository}/actions/runs/${options.githubRunId}/attempts/${options.githubRunAttempt}`
+      : undefined;
+
+  const client = new http.HttpClient("shogo82148/actions-go-fuzz");
+  await client.postJson(options.webhookUrl, {
+    text: `${report.testFunc} in the package ${report.packageName} failed.`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${report.testFunc}* in the package *${report.packageName}* failed.`,
+        },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `${"`"}${report.testCommand}${"`"} failed with the following output:
+${"```"}
+${report.testResult}
+${"```"}
+
+The following patch can reproduce the crash:
+
+${"```"}
+${report.patch}
+${"```"}
+`,
+        },
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `reported by <https://github.com/shogo82148/actions-go-fuzz|actions-go-fuzz>.${
+              logUrl != null ? ` <${logUrl}|See the log>.` : ""
+            }`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return {
+    found: true,
+  };
 }
