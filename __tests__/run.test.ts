@@ -1,7 +1,7 @@
 import path from "path";
 import { test, jest, expect } from "@jest/globals";
 import { HttpClient } from "@actions/http-client";
-import { fuzz } from "../src/run-impl";
+import { fuzz, ReportMethod } from "../src/run-impl";
 
 test("no error", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
@@ -21,7 +21,9 @@ test("no error", async () => {
     fuzzTime: "5s",
     fuzzMinimizeTime: "1s",
     workingDirectory,
+    reportMethod: ReportMethod.PullRequest,
     headBranchPrefix: "actions-go-fuzz",
+    webhookUrl: "",
   };
   const result = await fuzz(opts);
   expect(result).toEqual({ found: false });
@@ -106,7 +108,9 @@ test("found fuzz", async () => {
     fuzzTime: "30s",
     fuzzMinimizeTime: "1s",
     workingDirectory,
+    reportMethod: ReportMethod.PullRequest,
     headBranchPrefix: "actions-go-fuzz",
+    webhookUrl: "",
   };
   const result = await fuzz(opts);
   expect(result.headBranch).toMatch(/^actions-go-fuzz\/example\/fuzz\/FuzzReverse/);
@@ -170,7 +174,9 @@ test("permission error during creating a branch", async () => {
     fuzzTime: "30s",
     fuzzMinimizeTime: "1s",
     workingDirectory,
+    reportMethod: ReportMethod.PullRequest,
     headBranchPrefix: "actions-go-fuzz",
+    webhookUrl: "",
   };
   await expect(fuzz(opts)).rejects.toThrowError("failed to create a branch");
 }, 600000); // it runs go test, so it takes time.
@@ -231,7 +237,9 @@ test("suppress the error if the branch already exists", async () => {
     fuzzTime: "30s",
     fuzzMinimizeTime: "1s",
     workingDirectory,
+    reportMethod: ReportMethod.PullRequest,
     headBranchPrefix: "actions-go-fuzz",
+    webhookUrl: "",
   };
   const result = await fuzz(opts);
   expect(result).toEqual({ found: false });
