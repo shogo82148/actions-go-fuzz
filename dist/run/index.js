@@ -58764,13 +58764,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.saveCache = exports.restoreCache = exports.fuzz = void 0;
+exports.saveCache = exports.restoreCache = exports.fuzz = exports.ReportMethod = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const http = __importStar(__nccwpck_require__(6255));
 const cache = __importStar(__nccwpck_require__(7799));
 const crypto = __importStar(__nccwpck_require__(6113));
 const promises_1 = __importDefault(__nccwpck_require__(3292));
+exports.ReportMethod = {
+    PullRequest: "pull-request",
+    Slack: "slack",
+};
 async function fuzz(options) {
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     // start fuzzing
@@ -58810,18 +58814,7 @@ async function fuzz(options) {
         await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
         await promises_1.default.unlink(report.newInputPath);
     });
-    if (result == null) {
-        // in case of the report is already sent on another job.
-        return {
-            found: false,
-        };
-    }
-    return {
-        found: true,
-        headBranch: result.headBranch,
-        pullRequestNumber: result.pullRequestNumber,
-        pullRequestUrl: result.pullRequestUrl,
-    };
+    return result;
 }
 exports.fuzz = fuzz;
 async function restoreCache(options) {
@@ -58863,6 +58856,14 @@ async function generateReport(options) {
     };
 }
 async function sendReport(options, report) {
+    switch (options.reportMethod) {
+        case exports.ReportMethod.PullRequest:
+            return await sendReportViaPR(options, report);
+        case exports.ReportMethod.Slack:
+            return await sendReportViaSlack(options, report);
+    }
+}
+async function sendReportViaPR(options, report) {
     const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
         headers: {
             Authorization: `Bearer ${options.githubToken}`,
@@ -58882,7 +58883,9 @@ async function sendReport(options, report) {
     });
     if (createBranchResult == null) {
         core.info("the report already exists. skip to report a new fuzz input.");
-        return null;
+        return {
+            found: false,
+        };
     }
     // create a new commit
     await createCommit(client, options, {
@@ -58939,6 +58942,7 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
 `,
     });
     return {
+        found: true,
         headBranch: branchName,
         pullRequestNumber: pullRequest.data.createPullRequest.pullRequest.number,
         pullRequestUrl: pullRequest.data.createPullRequest.pullRequest.url,
@@ -59102,6 +59106,47 @@ async function createPullRequest(client, options, input) {
     }
     return response.result;
 }
+async function sendReportViaSlack(options, report) {
+    const logUrl = options.githubRunId != null && options.githubRunAttempt != null
+        ? `${options.githubServerUrl}/${options.repository}/actions/runs/${options.githubRunId}/attempts/${options.githubRunAttempt}`
+        : undefined;
+    const client = new http.HttpClient("shogo82148/actions-go-fuzz");
+    await client.postJson(options.webhookUrl, {
+        text: `${report.testFunc} in the package ${report.packageName} failed.`,
+        blocks: [
+            {
+                type: "section",
+                text: {
+                    type: "mrkdwn",
+                    text: `*${report.testFunc}* in the package *${report.packageName}* failed.`,
+                },
+            },
+            {
+                type: "section",
+                text: {
+                    type: "mrkdwn",
+                    text: `${"`"}${report.testCommand}${"`"} failed with the following output:
+${"```"}
+${report.testResult}
+${"```"}
+`,
+                },
+            },
+            {
+                type: "context",
+                elements: [
+                    {
+                        type: "mrkdwn",
+                        text: `reported by <actions-go-fuzz|https://github.com/shogo82148/actions-go-fuzz>.${logUrl != null ? ` <See the log|${logUrl}>.` : ""}`,
+                    },
+                ],
+            },
+        ],
+    });
+    return {
+        found: true,
+    };
+}
 
 
 /***/ }),
@@ -59137,6 +59182,13 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const run_impl_1 = __nccwpck_require__(2706);
+function getReportMethod() {
+    const method = core.getInput("report-method") || "pull-request";
+    if (method !== "pull-request" && method !== "slack") {
+        throw new Error("report-method must be either pull-request or security-vulnerability");
+    }
+    return method;
+}
 async function run() {
     const repository = core.getInput("repository");
     const githubToken = core.getInput("token");
@@ -59150,7 +59202,9 @@ async function run() {
     const fuzzRegexp = core.getInput("fuzz-regexp");
     const fuzzTime = core.getInput("fuzz-time");
     const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
+    const reportMethod = getReportMethod();
     const headBranchPrefix = core.getInput("head-branch-prefix").trim();
+    const webhookUrl = core.getInput("webhook-url");
     const options = {
         repository,
         githubToken,
@@ -59164,7 +59218,9 @@ async function run() {
         fuzzRegexp,
         fuzzTime,
         fuzzMinimizeTime,
+        reportMethod,
         headBranchPrefix,
+        webhookUrl,
     };
     try {
         await core.group("restore cache", async () => {

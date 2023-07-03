@@ -67,4 +67,4 @@ jobs:
           fuzz-regexp: ${{ matrix.func }}
           fuzz-time: 5s
           report-method: slack
-          slack-webhook: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
+          webhook-url: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
