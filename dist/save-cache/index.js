@@ -58840,14 +58840,15 @@ async function generateReport(options) {
     }
     core.info(`new input found: ${input}`);
     const packageName = await getPackageName(options);
-    const segments = input.split("/");
+    const segments = input.path.split("/");
     const testFunc = segments[segments.length - 2];
     const newInputName = segments[segments.length - 1];
     const testResult = await exec.getExecOutput("go", ["test", `-run=${testFunc}/${newInputName}`, options.packages], ignoreReturnCode);
-    const contents = await promises_1.default.readFile(input);
+    const contents = await promises_1.default.readFile(input.path);
     return {
         packageName,
-        newInputPath: input,
+        patch: input.patch,
+        newInputPath: input.path,
         newInputContents: contents,
         newInputName,
         testFunc,
@@ -58951,11 +58952,13 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
 async function getNewInput(options) {
     const cwd = { cwd: options.workingDirectory };
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+    // get the top level directory of the working directory.
+    const topLevel = (await exec.getExecOutput("git", ["rev-parse", "--show-toplevel"], cwd)).stdout.trim();
     // check whether there is any changes.
     await exec.exec("git", ["add", "."], cwd);
     const hasChange = await exec.exec("git", ["diff", "--cached", "--exit-code", "--quiet"], ignoreReturnCode);
     if (hasChange === 0) {
-        return undefined;
+        return null;
     }
     // find new test corpus.
     const output = await exec.getExecOutput("git", ["diff", "--name-only", "--cached", "--no-renames", "--diff-filter=d"], cwd);
@@ -58967,9 +58970,16 @@ async function getNewInput(options) {
             segments[segments.length - 2].startsWith("Fuzz"));
     });
     if (testdata.length !== 1) {
-        return undefined;
+        return null;
     }
-    return testdata[0];
+    const newInput = testdata[0];
+    // get the patch of the new test corpus.
+    const patch = (await exec.getExecOutput("git", ["diff", "--cached", newInput], { cwd: topLevel })).stdout;
+    // get the contents of the new test corpus.
+    return {
+        path: newInput,
+        patch,
+    };
 }
 // getRepositoryId gets the repository id from GitHub GraphQL API.
 async function getRepositoryId(client, options) {
@@ -59128,6 +59138,12 @@ async function sendReportViaSlack(options, report) {
                     text: `${"`"}${report.testCommand}${"`"} failed with the following output:
 ${"```"}
 ${report.testResult}
+${"```"}
+
+The following patch can reproduce the crash:
+
+${"```"}
+${report.patch}
 ${"```"}
 `,
                 },

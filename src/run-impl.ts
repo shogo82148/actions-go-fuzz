@@ -121,6 +121,9 @@ interface GenerateReportResult {
   // newInputContents is the contents of the new input that fails the fuzz test.
   newInputContents: Buffer;
 
+  // patch is the patch to reproduce the test failure.
+  patch: string;
+
   // newInputName is the name of NewInputPath.
   newInputName: string;
 
@@ -145,7 +148,7 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
 
   const packageName = await getPackageName(options);
 
-  const segments = input.split("/");
+  const segments = input.path.split("/");
   const testFunc = segments[segments.length - 2];
   const newInputName = segments[segments.length - 1];
 
@@ -155,11 +158,12 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
     ignoreReturnCode
   );
 
-  const contents = await fs.readFile(input);
+  const contents = await fs.readFile(input.path);
 
   return {
     packageName,
-    newInputPath: input,
+    patch: input.patch,
+    newInputPath: input.path,
     newInputContents: contents,
     newInputName,
     testFunc,
@@ -268,15 +272,23 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
   };
 }
 
-async function getNewInput(options: FuzzOptions): Promise<string | undefined> {
+interface GetNewInputOutput {
+  path: string;
+  patch: string;
+}
+
+async function getNewInput(options: FuzzOptions): Promise<GetNewInputOutput | null> {
   const cwd = { cwd: options.workingDirectory };
   const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+
+  // get the top level directory of the working directory.
+  const topLevel = (await exec.getExecOutput("git", ["rev-parse", "--show-toplevel"], cwd)).stdout.trim();
 
   // check whether there is any changes.
   await exec.exec("git", ["add", "."], cwd);
   const hasChange = await exec.exec("git", ["diff", "--cached", "--exit-code", "--quiet"], ignoreReturnCode);
   if (hasChange === 0) {
-    return undefined;
+    return null;
   }
 
   // find new test corpus.
@@ -295,9 +307,19 @@ async function getNewInput(options: FuzzOptions): Promise<string | undefined> {
     );
   });
   if (testdata.length !== 1) {
-    return undefined;
+    return null;
   }
-  return testdata[0];
+
+  const newInput = testdata[0];
+
+  // get the patch of the new test corpus.
+  const patch = (await exec.getExecOutput("git", ["diff", "--cached", newInput], { cwd: topLevel })).stdout;
+
+  // get the contents of the new test corpus.
+  return {
+    path: newInput,
+    patch,
+  };
 }
 
 // getRepositoryId gets the repository id from GitHub GraphQL API.
@@ -612,6 +634,12 @@ async function sendReportViaSlack(options: FuzzOptions, report: GenerateReportRe
           text: `${"`"}${report.testCommand}${"`"} failed with the following output:
 ${"```"}
 ${report.testResult}
+${"```"}
+
+The following patch can reproduce the crash:
+
+${"```"}
+${report.patch}
 ${"```"}
 `,
         },
