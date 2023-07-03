@@ -58810,6 +58810,12 @@ async function fuzz(options) {
         await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
         await promises_1.default.unlink(report.newInputPath);
     });
+    if (result == null) {
+        // in case of the report is already sent on another job.
+        return {
+            found: false,
+        };
+    }
     return {
         found: true,
         headBranch: result.headBranch,
@@ -58868,12 +58874,16 @@ async function sendReport(options, report) {
     // create a new branch
     const branchName = `${options.headBranchPrefix}/${report.packageName}/${report.testFunc}/${report.newInputName}`;
     const oid = await getHeadRef();
-    await createBranch(client, options, {
+    const createBranchResult = await createBranch(client, options, {
         clientMutationId: newClientMutationId(),
         repositoryId,
         name: `refs/heads/${branchName}`,
         oid,
     });
+    if (createBranchResult == null) {
+        core.info("the report already exists. skip to report a new fuzz input.");
+        return null;
+    }
     // create a new commit
     await createCommit(client, options, {
         clientMutationId: newClientMutationId(),
@@ -58996,6 +59006,8 @@ async function getPackageName(options) {
 function newClientMutationId() {
     return crypto.randomUUID();
 }
+// createBranch creates a branch.
+// it returns null if the branch already exists.
 async function createBranch(client, options, input) {
     const query = {
         // ref. https://docs.github.com/en/graphql/reference/mutations#createref
@@ -59016,6 +59028,10 @@ async function createBranch(client, options, input) {
     }
     if (response.result.errors != null) {
         for (const error of response.result.errors) {
+            if (error.type === "UNPROCESSABLE" && error.message.match(/already\s+exists/i)) {
+                // suppress the error if the branch already exists.
+                return null;
+            }
             core.error(`failed to create a branch: ${error.message}`);
         }
         core.error("please check whether the GitHub token has the write permission to the repository. " +
