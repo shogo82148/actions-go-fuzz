@@ -5,6 +5,13 @@ import * as cache from "@actions/cache";
 import * as crypto from "crypto";
 import fs from "fs/promises";
 
+export const ReportMethod = {
+  PullRequest: "pull-request",
+  Slack: "slack",
+} as const;
+
+export type ReportMethodType = (typeof ReportMethod)[keyof typeof ReportMethod];
+
 interface FuzzOptions {
   repository: string;
   githubToken: string;
@@ -18,7 +25,15 @@ interface FuzzOptions {
   fuzzRegexp: string;
   fuzzTime: string;
   fuzzMinimizeTime: string;
+  reportMethod: ReportMethodType;
   headBranchPrefix: string;
+  webhookUrl: string;
+}
+
+interface SaveCacheOptions {
+  packages: string;
+  workingDirectory: string;
+  fuzzRegexp: string;
 }
 
 interface FuzzResult {
@@ -78,29 +93,17 @@ export async function fuzz(options: FuzzOptions): Promise<FuzzResult> {
     await fs.unlink(report.newInputPath);
   });
 
-  if (result == null) {
-    // in case of the report is already sent on another job.
-    return {
-      found: false,
-    };
-  }
-
-  return {
-    found: true,
-    headBranch: result.headBranch,
-    pullRequestNumber: result.pullRequestNumber,
-    pullRequestUrl: result.pullRequestUrl,
-  };
+  return result;
 }
 
-export async function restoreCache(options: FuzzOptions): Promise<void> {
+export async function restoreCache(options: SaveCacheOptions): Promise<void> {
   const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
   const packageName = await getPackageName(options);
   const os = process.env["RUNNER_OS"] || "Unknown";
   await cache.restoreCache([`${cachePath}/fuzz`], `go-fuzz-${os}-${packageName}-${options.fuzzRegexp}-`, []);
 }
 
-export async function saveCache(options: FuzzOptions): Promise<void> {
+export async function saveCache(options: SaveCacheOptions): Promise<void> {
   const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
   const packageName = await getPackageName(options);
   const id = await getHeadRef();
@@ -165,13 +168,16 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
   };
 }
 
-interface SendReportResult {
-  headBranch: string;
-  pullRequestNumber: number;
-  pullRequestUrl: string;
+async function sendReport(options: FuzzOptions, report: GenerateReportResult): Promise<FuzzResult> {
+  switch (options.reportMethod) {
+    case ReportMethod.PullRequest:
+      return await sendReportViaPR(options, report);
+    case ReportMethod.Slack:
+      return await sendReportViaSlack(options, report);
+  }
 }
 
-async function sendReport(options: FuzzOptions, report: GenerateReportResult): Promise<SendReportResult | null> {
+async function sendReportViaPR(options: FuzzOptions, report: GenerateReportResult): Promise<FuzzResult> {
   const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
     headers: {
       Authorization: `Bearer ${options.githubToken}`,
@@ -192,7 +198,9 @@ async function sendReport(options: FuzzOptions, report: GenerateReportResult): P
   });
   if (createBranchResult == null) {
     core.info("the report already exists. skip to report a new fuzz input.");
-    return null;
+    return {
+      found: false,
+    };
   }
 
   // create a new commit
@@ -253,6 +261,7 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
   });
 
   return {
+    found: true,
     headBranch: branchName,
     pullRequestNumber: pullRequest.data.createPullRequest.pullRequest.number,
     pullRequestUrl: pullRequest.data.createPullRequest.pullRequest.url,
@@ -334,7 +343,12 @@ async function getHeadRef(): Promise<string> {
   return output.stdout.trim();
 }
 
-async function getPackageName(options: FuzzOptions): Promise<string> {
+interface GetPackageOptions {
+  packages: string;
+  workingDirectory: string;
+}
+
+async function getPackageName(options: GetPackageOptions): Promise<string> {
   const output = await exec.getExecOutput("go", ["list", options.packages], { cwd: options.workingDirectory });
   const pkg = output.stdout.trim();
   return pkg;
@@ -572,4 +586,51 @@ async function createPullRequest(
     throw new Error("failed to create a pull request");
   }
   return response.result;
+}
+
+async function sendReportViaSlack(options: FuzzOptions, report: GenerateReportResult): Promise<FuzzResult> {
+  const logUrl =
+    options.githubRunId != null && options.githubRunAttempt != null
+      ? `${options.githubServerUrl}/${options.repository}/actions/runs/${options.githubRunId}/attempts/${options.githubRunAttempt}`
+      : undefined;
+
+  const client = new http.HttpClient("shogo82148/actions-go-fuzz");
+  await client.postJson(options.webhookUrl, {
+    text: `${report.testFunc} in the package ${report.packageName} failed.`,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${report.testFunc}* in the package *${report.packageName}* failed.`,
+        },
+      },
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `${"`"}${report.testCommand}${"`"} failed with the following output:
+${"```"}
+${report.testResult}
+${"```"}
+`,
+        },
+      },
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: `reported by <actions-go-fuzz|https://github.com/shogo82148/actions-go-fuzz>.${
+              logUrl != null ? ` <See the log|${logUrl}>.` : ""
+            }`,
+          },
+        ],
+      },
+    ],
+  });
+
+  return {
+    found: true,
+  };
 }
