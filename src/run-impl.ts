@@ -621,8 +621,8 @@ ${"```"}
         elements: [
           {
             type: "mrkdwn",
-            text: `reported by <actions-go-fuzz|https://github.com/shogo82148/actions-go-fuzz>.${
-              logUrl != null ? ` <See the log|${logUrl}>.` : ""
+            text: `reported by <https://github.com/shogo82148/actions-go-fuzz|actions-go-fuzz>.${
+              logUrl != null ? ` <${logUrl}|See the log>.` : ""
             }`,
           },
         ],
