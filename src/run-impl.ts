@@ -78,6 +78,13 @@ export async function fuzz(options: FuzzOptions): Promise<FuzzResult> {
     await fs.unlink(report.newInputPath);
   });
 
+  if (result == null) {
+    // in case of the report is already sent on another job.
+    return {
+      found: false,
+    };
+  }
+
   return {
     found: true,
     headBranch: result.headBranch,
@@ -164,7 +171,7 @@ interface SendReportResult {
   pullRequestUrl: string;
 }
 
-async function sendReport(options: FuzzOptions, report: GenerateReportResult): Promise<SendReportResult> {
+async function sendReport(options: FuzzOptions, report: GenerateReportResult): Promise<SendReportResult | null> {
   const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
     headers: {
       Authorization: `Bearer ${options.githubToken}`,
@@ -177,12 +184,16 @@ async function sendReport(options: FuzzOptions, report: GenerateReportResult): P
   // create a new branch
   const branchName = `${options.headBranchPrefix}/${report.packageName}/${report.testFunc}/${report.newInputName}`;
   const oid = await getHeadRef();
-  await createBranch(client, options, {
+  const createBranchResult = await createBranch(client, options, {
     clientMutationId: newClientMutationId(),
     repositoryId,
     name: `refs/heads/${branchName}`,
     oid,
   });
+  if (createBranchResult == null) {
+    core.info("the report already exists. skip to report a new fuzz input.");
+    return null;
+  }
 
   // create a new commit
   await createCommit(client, options, {
@@ -369,11 +380,13 @@ interface CreateBranchOutput {
   errors?: GraphQLError[];
 }
 
+// createBranch creates a branch.
+// it returns null if the branch already exists.
 async function createBranch(
   client: http.HttpClient,
   options: FuzzOptions,
   input: CreateBranchInput
-): Promise<CreateBranchOutput> {
+): Promise<CreateBranchOutput | null> {
   const query = {
     // ref. https://docs.github.com/en/graphql/reference/mutations#createref
     query: `mutation ($input: CreateRefInput!) {
@@ -394,8 +407,16 @@ async function createBranch(
   }
   if (response.result.errors != null) {
     for (const error of response.result.errors) {
-      core.error(error.message);
+      if (error.type === "UNPROCESSABLE" && error.message.match(/already\s+exists/i)) {
+        // suppress the error if the branch already exists.
+        return null;
+      }
+      core.error(`failed to create a branch: ${error.message}`);
     }
+    core.error(
+      "please check whether the GitHub token has the write permission to the repository. " +
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+    );
     throw new Error("failed to create a branch");
   }
   return response.result;
@@ -470,8 +491,12 @@ async function createCommit(
   }
   if (response.result.errors != null) {
     for (const error of response.result.errors) {
-      core.error(error.message);
+      core.error(`failed to create a commit: ${error.message}`);
     }
+    core.error(
+      "please check whether the GitHub token has the write permission to the repository. " +
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+    );
     throw new Error("failed to create a commit");
   }
   return response.result;
@@ -538,8 +563,12 @@ async function createPullRequest(
   }
   if (response.result.errors != null) {
     for (const error of response.result.errors) {
-      core.error(error.message);
+      core.error(`failed to create a pull request: ${error.message}`);
     }
+    core.error(
+      "please check whether the GitHub token has the write permission to the repository. " +
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+    );
     throw new Error("failed to create a pull request");
   }
   return response.result;
