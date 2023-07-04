@@ -31,6 +31,10 @@ inputs:
     description: "Fuzz minimization duration, specified as a `time.Duration` (for example `1h30s`). Corresponds to `-fuzzminimizetime` flag for the `go test` command. If you provide this input, ensure it is less than your job timeout."
     required: true
     default: 60s
+  report-method:
+    description: "The method to report the result. `pull-request` to create a pull request, `slack` to send a message via Slack Incoming Web Hook."
+    required: true
+    default: "pull-request"
   base-branch:
     description: "The base branch name of the pull request."
     required: false
@@ -38,6 +42,9 @@ inputs:
     description: "The prefix of the head branch name of the pull request."
     required: true
     default: "actions-go-fuzz"
+  webhook-url:
+    description: "The URL of the Slack Incoming Web Hook."
+    required: false
 
 outputs:
   found:

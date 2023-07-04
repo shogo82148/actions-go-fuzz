@@ -58764,13 +58764,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.saveCache = exports.restoreCache = exports.fuzz = void 0;
+exports.saveCache = exports.restoreCache = exports.fuzz = exports.ReportMethod = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const http = __importStar(__nccwpck_require__(6255));
 const cache = __importStar(__nccwpck_require__(7799));
 const crypto = __importStar(__nccwpck_require__(6113));
 const promises_1 = __importDefault(__nccwpck_require__(3292));
+exports.ReportMethod = {
+    PullRequest: "pull-request",
+    Slack: "slack",
+};
 async function fuzz(options) {
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     // start fuzzing
@@ -58810,18 +58814,7 @@ async function fuzz(options) {
         await exec.exec("git", ["restore", "--staged", "."], ignoreReturnCode);
         await promises_1.default.unlink(report.newInputPath);
     });
-    if (result == null) {
-        // in case of the report is already sent on another job.
-        return {
-            found: false,
-        };
-    }
-    return {
-        found: true,
-        headBranch: result.headBranch,
-        pullRequestNumber: result.pullRequestNumber,
-        pullRequestUrl: result.pullRequestUrl,
-    };
+    return result;
 }
 exports.fuzz = fuzz;
 async function restoreCache(options) {
@@ -58847,14 +58840,15 @@ async function generateReport(options) {
     }
     core.info(`new input found: ${input}`);
     const packageName = await getPackageName(options);
-    const segments = input.split("/");
+    const segments = input.path.split("/");
     const testFunc = segments[segments.length - 2];
     const newInputName = segments[segments.length - 1];
     const testResult = await exec.getExecOutput("go", ["test", `-run=${testFunc}/${newInputName}`, options.packages], ignoreReturnCode);
-    const contents = await promises_1.default.readFile(input);
+    const contents = await promises_1.default.readFile(input.path);
     return {
         packageName,
-        newInputPath: input,
+        patch: input.patch,
+        newInputPath: input.path,
         newInputContents: contents,
         newInputName,
         testFunc,
@@ -58863,6 +58857,14 @@ async function generateReport(options) {
     };
 }
 async function sendReport(options, report) {
+    switch (options.reportMethod) {
+        case exports.ReportMethod.PullRequest:
+            return await sendReportViaPR(options, report);
+        case exports.ReportMethod.Slack:
+            return await sendReportViaSlack(options, report);
+    }
+}
+async function sendReportViaPR(options, report) {
     const client = new http.HttpClient("shogo82148/actions-go-fuzz", [], {
         headers: {
             Authorization: `Bearer ${options.githubToken}`,
@@ -58882,7 +58884,9 @@ async function sendReport(options, report) {
     });
     if (createBranchResult == null) {
         core.info("the report already exists. skip to report a new fuzz input.");
-        return null;
+        return {
+            found: false,
+        };
     }
     // create a new commit
     await createCommit(client, options, {
@@ -58939,6 +58943,7 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
 `,
     });
     return {
+        found: true,
         headBranch: branchName,
         pullRequestNumber: pullRequest.data.createPullRequest.pullRequest.number,
         pullRequestUrl: pullRequest.data.createPullRequest.pullRequest.url,
@@ -58947,11 +58952,13 @@ ${logUrl != null ? `\n[See the log](${logUrl}).` : ""}
 async function getNewInput(options) {
     const cwd = { cwd: options.workingDirectory };
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
+    // get the top level directory of the working directory.
+    const topLevel = (await exec.getExecOutput("git", ["rev-parse", "--show-toplevel"], cwd)).stdout.trim();
     // check whether there is any changes.
     await exec.exec("git", ["add", "."], cwd);
     const hasChange = await exec.exec("git", ["diff", "--cached", "--exit-code", "--quiet"], ignoreReturnCode);
     if (hasChange === 0) {
-        return undefined;
+        return null;
     }
     // find new test corpus.
     const output = await exec.getExecOutput("git", ["diff", "--name-only", "--cached", "--no-renames", "--diff-filter=d"], cwd);
@@ -58963,9 +58970,16 @@ async function getNewInput(options) {
             segments[segments.length - 2].startsWith("Fuzz"));
     });
     if (testdata.length !== 1) {
-        return undefined;
+        return null;
     }
-    return testdata[0];
+    const newInput = testdata[0];
+    // get the patch of the new test corpus.
+    const patch = (await exec.getExecOutput("git", ["diff", "--cached", newInput], { cwd: topLevel })).stdout;
+    // get the contents of the new test corpus.
+    return {
+        path: newInput,
+        patch,
+    };
 }
 // getRepositoryId gets the repository id from GitHub GraphQL API.
 async function getRepositoryId(client, options) {
@@ -59102,6 +59116,53 @@ async function createPullRequest(client, options, input) {
     }
     return response.result;
 }
+async function sendReportViaSlack(options, report) {
+    const logUrl = options.githubRunId != null && options.githubRunAttempt != null
+        ? `${options.githubServerUrl}/${options.repository}/actions/runs/${options.githubRunId}/attempts/${options.githubRunAttempt}`
+        : undefined;
+    const client = new http.HttpClient("shogo82148/actions-go-fuzz");
+    await client.postJson(options.webhookUrl, {
+        text: `${report.testFunc} in the package ${report.packageName} failed.`,
+        blocks: [
+            {
+                type: "section",
+                text: {
+                    type: "mrkdwn",
+                    text: `*${report.testFunc}* in the package *${report.packageName}* failed.`,
+                },
+            },
+            {
+                type: "section",
+                text: {
+                    type: "mrkdwn",
+                    text: `${"`"}${report.testCommand}${"`"} failed with the following output:
+${"```"}
+${report.testResult}
+${"```"}
+
+The following patch can reproduce the crash:
+
+${"```"}
+${report.patch}
+${"```"}
+`,
+                },
+            },
+            {
+                type: "context",
+                elements: [
+                    {
+                        type: "mrkdwn",
+                        text: `reported by <https://github.com/shogo82148/actions-go-fuzz|actions-go-fuzz>.${logUrl != null ? ` <${logUrl}|See the log>.` : ""}`,
+                    },
+                ],
+            },
+        ],
+    });
+    return {
+        found: true,
+    };
+}
 
 
 /***/ }),
@@ -59138,33 +59199,13 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 const core = __importStar(__nccwpck_require__(2186));
 const run_impl_1 = __nccwpck_require__(2706);
 async function run() {
-    const repository = core.getInput("repository");
-    const githubToken = core.getInput("token");
-    const githubGraphqlUrl = process.env["GITHUB_GRAPHQL_URL"] || "https://api.github.com/graphql";
-    const githubServerUrl = process.env["GITHUB_SERVER_URL"] || "https://github.com";
-    const githubRunId = process.env["GITHUB_RUN_ID"];
-    const githubRunAttempt = process.env["GITHUB_RUN_ATTEMPT"];
-    const baseBranch = core.getInput("base-branch") || process.env["GITHUB_HEAD_REF"] || "main";
     const packages = core.getInput("packages").trim();
     const workingDirectory = core.getInput("working-directory");
     const fuzzRegexp = core.getInput("fuzz-regexp");
-    const fuzzTime = core.getInput("fuzz-time");
-    const fuzzMinimizeTime = core.getInput("fuzz-minimize-time");
-    const headBranchPrefix = core.getInput("head-branch-prefix").trim();
     const options = {
-        repository,
-        githubToken,
-        githubGraphqlUrl,
-        githubServerUrl,
-        githubRunId,
-        githubRunAttempt,
-        baseBranch,
         packages,
         workingDirectory,
         fuzzRegexp,
-        fuzzTime,
-        fuzzMinimizeTime,
-        headBranchPrefix,
     };
     try {
         await core.group("save cache", async () => {
