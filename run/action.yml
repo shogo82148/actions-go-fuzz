@@ -4,20 +4,20 @@ author: "ICHINOSE Shogo"
 
 inputs:
   repository:
-    description: "Repository name with owner. For example, shogo82148/actions-go-fuzz."
+    description: "The name of the repository with owner (e.g., `shogo82148/actions-go-fuzz`). It defaults to the repository where the action is running."
     required: true
     default: ${{ github.repository }}
   token:
-    description: "The GitHub token for the repository."
+    description: "The GitHub token for the repository. It defaults to the token provided by the GitHub Actions environment."
     required: true
     default: ${{ github.token }}
   packages:
     required: false
-    description: "package name to list fuzz tests"
+    description: "An optional parameter to specify the Go packages for fuzz tests. By default, it targets all packages in your project (`./...`)."
     default: "./..."
   working-directory:
     required: false
-    description: "working directory"
+    description: "This is also an optional parameter that allows you to specify a working directory. The default is the root directory (`.`)."
     default: "."
   fuzz-regexp:
     required: false
@@ -48,7 +48,7 @@ inputs:
 
 outputs:
   found:
-    description: "true if new crashers are found"
+    description: "`true` if new crashers are found. otherwise, it is falsy value."
   head-branch:
     description: "the name of the head branch of the pull request the action created"
   pull-request-number:
