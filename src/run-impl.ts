@@ -618,7 +618,7 @@ async function sendReportViaSlack(options: FuzzOptions, report: GenerateReportRe
 
   const client = new http.HttpClient("shogo82148/actions-go-fuzz");
   await client.postJson(options.webhookUrl, {
-    text: `${report.testFunc} in the package ${report.packageName} failed.`,
+    text: `<${options.githubServerUrl}/${options.repository}|${options.repository}>: ${report.testFunc} in the package ${report.packageName} failed.`,
     blocks: [
       {
         type: "section",
