@@ -160,6 +160,12 @@ With `slack` report method, `actions-go-fuzz` action requires the following GitH
 - `pull-request-number`: the number of the pull request the action created.
 - `pull-request-url`: the URL of the pull request the action created.
 
+## Security
+
+The pull request created by this action can be viewed by anyone who has read permissions for the repository.
+Be careful in handling it as the pull request may contain information about vulnerabilities.
+If possible, we recommend using the `slack` report method.
+
 ## License
 
 The scripts and documentation in this project are released under the [MIT License](LICENSE).
