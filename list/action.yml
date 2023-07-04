@@ -5,11 +5,11 @@ author: "ICHINOSE Shogo"
 inputs:
   packages:
     required: false
-    description: "This is an optional parameter that lets you specify the Go packages for which you want to list the fuzz tests. By default, it targets all packages in your project ("./...")."
+    description: "This is an optional parameter that lets you specify the Go packages for which you want to list the fuzz tests. By default, it targets all packages in your project (`./...``)."
     default: "./..."
   working-directory:
     required: false
-    description: "This is also an optional parameter that allows you to specify a working directory. The default is the root directory (".")."
+    description: "This is also an optional parameter that allows you to specify a working directory. The default is the root directory (`.`)."
     default: "."
 
 outputs:
