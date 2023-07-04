@@ -5,16 +5,16 @@ author: "ICHINOSE Shogo"
 inputs:
   packages:
     required: false
-    description: "package name to list fuzz tests"
+    description: "This is an optional parameter that lets you specify the Go packages for which you want to list the fuzz tests. By default, it targets all packages in your project (`./...``)."
     default: "./..."
   working-directory:
     required: false
-    description: "working directory"
+    description: "This is also an optional parameter that allows you to specify a working directory. The default is the root directory (`.`)."
     default: "."
 
 outputs:
   fuzz-tests:
-    description: "the JSON-encoded list of fuzz tests"
+    description: "JSON-encoded list of all the fuzz tests for the specified Go packages."
 
 runs:
   using: "node16"
