@@ -624,7 +624,7 @@ async function sendReportViaSlack(options: FuzzOptions, report: GenerateReportRe
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*${report.testFunc}* in the package *${report.packageName}* failed.`,
+          text: `<${options.githubServerUrl}/${options.repository}|${options.repository}>: *${report.testFunc}* in the package *${report.packageName}* failed.`,
         },
       },
       {
