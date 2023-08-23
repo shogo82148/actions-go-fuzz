@@ -28,6 +28,7 @@ interface FuzzOptions {
   reportMethod: ReportMethodType;
   headBranchPrefix: string;
   webhookUrl: string;
+  tags?: string;
 }
 
 interface SaveCacheOptions {
@@ -48,17 +49,17 @@ export async function fuzz(options: FuzzOptions): Promise<FuzzResult> {
 
   // start fuzzing
   const exitCode = await core.group("fuzzing", async () => {
-    return await exec.exec(
-      "go",
-      [
-        "test",
-        `-fuzz=${options.fuzzRegexp}`,
-        `-fuzztime=${options.fuzzTime}`,
-        `-fuzzminimizetime=${options.fuzzMinimizeTime}`,
-        options.packages,
-      ],
-      { cwd: options.workingDirectory, ignoreReturnCode: true }
-    );
+    const args = [
+      "test",
+      `-fuzz=${options.fuzzRegexp}`,
+      `-fuzztime=${options.fuzzTime}`,
+      `-fuzzminimizetime=${options.fuzzMinimizeTime}`,
+    ];
+    if (options.tags) {
+      args.push("-tags", options.tags);
+    }
+    args.push(options.packages);
+    return await exec.exec("go", args, ignoreReturnCode);
   });
 
   if (exitCode === 0) {
@@ -155,7 +156,7 @@ async function generateReport(options: FuzzOptions): Promise<GenerateReportResul
   const testResult = await exec.getExecOutput(
     "go",
     ["test", `-run=${testFunc}/${newInputName}`, options.packages],
-    ignoreReturnCode
+    ignoreReturnCode,
   );
 
   const contents = await fs.readFile(input.path);
@@ -295,7 +296,7 @@ async function getNewInput(options: FuzzOptions): Promise<GetNewInputOutput | nu
   const output = await exec.getExecOutput(
     "git",
     ["diff", "--name-only", "--cached", "--no-renames", "--diff-filter=d"],
-    cwd
+    cwd,
   );
   const testdata = output.stdout.split("\n").filter((file) => {
     const segments = file.split("/");
@@ -421,7 +422,7 @@ interface CreateBranchOutput {
 async function createBranch(
   client: http.HttpClient,
   options: FuzzOptions,
-  input: CreateBranchInput
+  input: CreateBranchInput,
 ): Promise<CreateBranchOutput | null> {
   const query = {
     // ref. https://docs.github.com/en/graphql/reference/mutations#createref
@@ -451,7 +452,7 @@ async function createBranch(
     }
     core.error(
       "please check whether the GitHub token has the write permission to the repository. " +
-        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details.",
     );
     throw new Error("failed to create a branch");
   }
@@ -502,7 +503,7 @@ interface CreateCommitOutput {
 async function createCommit(
   client: http.HttpClient,
   options: FuzzOptions,
-  input: CreateCommitInput
+  input: CreateCommitInput,
 ): Promise<CreateCommitOutput> {
   const query = {
     // https://docs.github.com/en/graphql/reference/mutations#createcommitonbranch
@@ -531,7 +532,7 @@ async function createCommit(
     }
     core.error(
       "please check whether the GitHub token has the write permission to the repository. " +
-        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details.",
     );
     throw new Error("failed to create a commit");
   }
@@ -574,7 +575,7 @@ interface CreatePullRequestOutput {
 async function createPullRequest(
   client: http.HttpClient,
   options: FuzzOptions,
-  input: CreatePullRequestInput
+  input: CreatePullRequestInput,
 ): Promise<CreatePullRequestOutput> {
   const query = {
     // https://docs.github.com/en/graphql/reference/mutations#createpullrequest
@@ -603,7 +604,7 @@ async function createPullRequest(
     }
     core.error(
       "please check whether the GitHub token has the write permission to the repository. " +
-        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details."
+        "see https://github.com/shogo82148/actions-go-fuzz#permissions for more details.",
     );
     throw new Error("failed to create a pull request");
   }

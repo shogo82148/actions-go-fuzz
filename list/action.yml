@@ -11,6 +11,10 @@ inputs:
     required: false
     description: "This is also an optional parameter that allows you to specify a working directory. The default is the root directory (`.`)."
     default: "."
+  tags:
+    required: false
+    description: "A comma-separated list of additional build tags to consider satisfied during the build. It is equivalent to the `-tags` flag of the `go test` command."
+    default: ""
 
 outputs:
   fuzz-tests:
