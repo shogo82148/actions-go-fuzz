@@ -58973,6 +58973,8 @@ async function fuzz(options) {
             `-fuzz=${options.fuzzRegexp}`,
             `-fuzztime=${options.fuzzTime}`,
             `-fuzzminimizetime=${options.fuzzMinimizeTime}`,
+            "-run",
+            "^$",
         ];
         if (options.tags) {
             args.push("-tags", options.tags);
