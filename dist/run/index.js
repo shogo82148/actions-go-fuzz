@@ -58968,13 +58968,17 @@ async function fuzz(options) {
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     // start fuzzing
     const exitCode = await core.group("fuzzing", async () => {
-        return await exec.exec("go", [
+        const args = [
             "test",
             `-fuzz=${options.fuzzRegexp}`,
             `-fuzztime=${options.fuzzTime}`,
             `-fuzzminimizetime=${options.fuzzMinimizeTime}`,
-            options.packages,
-        ], { cwd: options.workingDirectory, ignoreReturnCode: true });
+        ];
+        if (options.tags) {
+            args.push("-tags", options.tags);
+        }
+        args.push(options.packages);
+        return await exec.exec("go", args, ignoreReturnCode);
     });
     if (exitCode === 0) {
         // no fuzzing error, exit
@@ -59410,6 +59414,7 @@ async function run() {
     const reportMethod = getReportMethod();
     const headBranchPrefix = core.getInput("head-branch-prefix").trim();
     const webhookUrl = core.getInput("webhook-url");
+    const tags = core.getInput("tags").trim();
     const options = {
         repository,
         githubToken,
@@ -59426,6 +59431,7 @@ async function run() {
         reportMethod,
         headBranchPrefix,
         webhookUrl,
+        tags,
     };
     try {
         await core.group("restore cache", async () => {

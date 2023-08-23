@@ -6,8 +6,13 @@ async function run(): Promise<void> {
     const workingDirectory = core.getInput("working-directory");
     const pkg = core.getInput("packages").trim();
     const packages = pkg.split(/\s+/);
+    const tags = core.getInput("tags").trim();
 
-    const { fuzzTests } = await list(packages, workingDirectory);
+    const { fuzzTests } = await list({
+      packages,
+      workingDirectory,
+      tags,
+    });
     core.setOutput("fuzz-tests", JSON.stringify(fuzzTests));
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);

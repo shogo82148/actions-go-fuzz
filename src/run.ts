@@ -25,6 +25,7 @@ async function run(): Promise<void> {
   const reportMethod = getReportMethod();
   const headBranchPrefix = core.getInput("head-branch-prefix").trim();
   const webhookUrl = core.getInput("webhook-url");
+  const tags = core.getInput("tags").trim();
   const options = {
     repository,
     githubToken,
@@ -41,6 +42,7 @@ async function run(): Promise<void> {
     reportMethod,
     headBranchPrefix,
     webhookUrl,
+    tags,
   };
 
   try {

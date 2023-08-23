@@ -134,6 +134,7 @@ With `slack` report method, `actions-go-fuzz` action requires the following GitH
 
 - `packages`: This is an optional parameter that lets you specify the Go packages for which you want to list the fuzz tests. By default, it targets all packages in your project (`./...`).
 - `working-directory`: This is also an optional parameter that allows you to specify a working directory. The default is the root directory (`.`).
+- `tags`: A comma-separated list of additional build tags to consider satisfied during the build. It is equivalent to the `-tags` flag of the `go test` command.
 
 ## Outputs of the list action
 
@@ -152,6 +153,7 @@ With `slack` report method, `actions-go-fuzz` action requires the following GitH
 - `base-branch`: The base branch name of the pull request.
 - `head-branch-prefix`: The prefix of the head branch name of the pull request.
 - `webhook-url`: The URL of the Slack Incoming Web Hook.
+- `tags`: A comma-separated list of additional build tags to consider satisfied during the build. It is equivalent to the `-tags` flag of the `go test` command.
 
 ## Outputs of the list action
 
