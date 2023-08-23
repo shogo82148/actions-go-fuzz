@@ -3984,10 +3984,16 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.list = void 0;
 const exec = __importStar(__nccwpck_require__(514));
-async function list(packages, workingDirectory) {
+async function list(options) {
+    // build the command line arguments.
+    const opts = { cwd: options.workingDirectory };
+    const args = ["test", "-list", "^Fuzz", "-json", "-run", "^$"];
+    if (options.tags) {
+        args.push("-tags", options.tags);
+    }
+    args.push(...options.packages);
+    const output = await exec.getExecOutput("go", args, opts);
     // list Fuzz tests in the packages.
-    const opts = { cwd: workingDirectory };
-    const output = await exec.getExecOutput("go", ["test", "-list", "^Fuzz", "-json", ...packages], opts);
     const fuzzTests = output.stdout
         .split("\n")
         .filter((line) => line !== "")
@@ -4057,7 +4063,12 @@ async function run() {
         const workingDirectory = core.getInput("working-directory");
         const pkg = core.getInput("packages").trim();
         const packages = pkg.split(/\s+/);
-        const { fuzzTests } = await (0, list_impl_1.list)(packages, workingDirectory);
+        const tags = core.getInput("tags").trim();
+        const { fuzzTests } = await (0, list_impl_1.list)({
+            packages,
+            workingDirectory,
+            tags,
+        });
         core.setOutput("fuzz-tests", JSON.stringify(fuzzTests));
     }
     catch (error) {
