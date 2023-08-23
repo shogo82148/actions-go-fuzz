@@ -45,6 +45,10 @@ inputs:
   webhook-url:
     description: "The URL of the Slack Incoming Web Hook."
     required: false
+  tags:
+    required: false
+    description: "A comma-separated list of additional build tags to consider satisfied during the build. It is equivalent to the `-tags` flag of the `go test` command."
+    default: ""
 
 outputs:
   found:
