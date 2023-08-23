@@ -4,7 +4,10 @@ import { expect, test } from "@jest/globals";
 
 test("list fuzz tests", async () => {
   const workingDirectory = path.join(__dirname, "testdata/fuzz");
-  const { fuzzTests } = await list(["./..."], workingDirectory);
+  const { fuzzTests } = await list({
+    packages: ["./..."],
+    workingDirectory,
+  });
   expect(fuzzTests).toEqual([
     {
       package: "example/fuzz",

@@ -19,7 +19,7 @@ interface FuzzTest {
 interface ListOptions {
   packages: string[];
   workingDirectory: string;
-  tags: string;
+  tags?: string;
 }
 
 interface ListResult {

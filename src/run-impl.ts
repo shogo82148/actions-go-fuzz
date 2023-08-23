@@ -28,7 +28,7 @@ interface FuzzOptions {
   reportMethod: ReportMethodType;
   headBranchPrefix: string;
   webhookUrl: string;
-  tags: string;
+  tags?: string;
 }
 
 interface SaveCacheOptions {
