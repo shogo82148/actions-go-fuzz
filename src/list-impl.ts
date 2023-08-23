@@ -16,14 +16,27 @@ interface FuzzTest {
   func: string;
 }
 
+interface ListOptions {
+  packages: string[];
+  workingDirectory: string;
+  tags: string;
+}
+
 interface ListResult {
   fuzzTests: FuzzTest[];
 }
 
-export async function list(packages: string[], workingDirectory: string): Promise<ListResult> {
+export async function list(options: ListOptions): Promise<ListResult> {
+  // build the command line arguments.
+  const opts = { cwd: options.workingDirectory };
+  const args = ["test", "-list", "^Fuzz", "-json", "-run", "^$"];
+  if (options.tags) {
+    args.push("-tags", options.tags);
+  }
+  args.push(...options.packages);
+  const output = await exec.getExecOutput("go", args, opts);
+
   // list Fuzz tests in the packages.
-  const opts = { cwd: workingDirectory };
-  const output = await exec.getExecOutput("go", ["test", "-list", "^Fuzz", "-json", ...packages], opts);
   const fuzzTests: FuzzTest[] = output.stdout
     .split("\n")
     .filter((line) => line !== "")
