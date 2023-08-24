@@ -57,9 +57,12 @@ jobs:
       fail-fast: false
       matrix:
         include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
+    env:
+      SLACK_INCOMING_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
     steps:
       - uses: actions/checkout@v3
       - id: fuzz
+        if: env.SLACK_INCOMING_WEBHOOK
         uses: ./run/
         with:
           working-directory: "__tests__/testdata/fuzz"
