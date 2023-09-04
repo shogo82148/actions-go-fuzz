@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: list
         uses: ./list/
         with:
@@ -33,7 +33,7 @@ jobs:
       matrix:
         include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: fuzz
         uses: ./run/
         with:
@@ -60,7 +60,7 @@ jobs:
     env:
       SLACK_INCOMING_WEBHOOK: ${{ secrets.SLACK_INCOMING_WEBHOOK }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - id: fuzz
         if: env.SLACK_INCOMING_WEBHOOK
         uses: ./run/
