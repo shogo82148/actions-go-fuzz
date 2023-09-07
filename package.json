@@ -5,7 +5,7 @@
   "description": "GitHub Actions for Go fuzzing",
   "main": "lib/main.js",
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "build": "tsc",

@@ -3,5 +3,5 @@ description: "This action runs Go Fuzzing on GitHub Actions."
 author: "ICHINOSE Shogo"
 inputs: {}
 runs:
-  using: "node16"
+  using: "node20"
   main: "dist/index.js"
