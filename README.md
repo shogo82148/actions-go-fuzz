@@ -31,7 +31,7 @@ jobs:
         with:
           go-version: "stable"
       - id: list
-        uses: shogo82148/actions-go-fuzz/list@v0
+        uses: shogo82148/actions-go-fuzz/list@v1
     outputs:
       fuzz-tests: ${{steps.list.outputs.fuzz-tests}}
 
@@ -48,7 +48,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "stable"
-      - uses: shogo82148/actions-go-fuzz/run@v0
+      - uses: shogo82148/actions-go-fuzz/run@v1
         with:
           packages: ${{ matrix.package }}
           fuzz-regexp: ${{ matrix.func }}
@@ -85,7 +85,7 @@ jobs:
         with:
           go-version: "stable"
       - id: list
-        uses: shogo82148/actions-go-fuzz/list@v0
+        uses: shogo82148/actions-go-fuzz/list@v1
     outputs:
       fuzz-tests: ${{steps.list.outputs.fuzz-tests}}
 
@@ -102,7 +102,7 @@ jobs:
       - uses: actions/setup-go@v4
         with:
           go-version: "stable"
-      - uses: shogo82148/actions-go-fuzz/run@v0
+      - uses: shogo82148/actions-go-fuzz/run@v1
         with:
           packages: ${{ matrix.package }}
           fuzz-regexp: ${{ matrix.func }}
