@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "stable"
       - id: list
@@ -45,7 +45,7 @@ jobs:
         include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "stable"
       - uses: shogo82148/actions-go-fuzz/run@v1
@@ -81,7 +81,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "stable"
       - id: list
@@ -99,7 +99,7 @@ jobs:
         include: ${{fromJson(needs.list.outputs.fuzz-tests)}}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v4
+      - uses: actions/setup-go@v5
         with:
           go-version: "stable"
       - uses: shogo82148/actions-go-fuzz/run@v1
