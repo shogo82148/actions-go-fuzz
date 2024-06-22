@@ -82568,7 +82568,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.saveCache = exports.restoreCache = exports.fuzz = exports.ReportMethod = void 0;
+exports.ReportMethod = void 0;
+exports.fuzz = fuzz;
+exports.restoreCache = restoreCache;
+exports.saveCache = saveCache;
 const core = __importStar(__nccwpck_require__(2186));
 const exec = __importStar(__nccwpck_require__(1514));
 const http = __importStar(__nccwpck_require__(6255));
@@ -82626,14 +82629,12 @@ async function fuzz(options) {
     });
     return result;
 }
-exports.fuzz = fuzz;
 async function restoreCache(options) {
     const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
     const packageName = await getPackageName(options);
     const os = process.env["RUNNER_OS"] || "Unknown";
     await cache.restoreCache([`${cachePath}/fuzz`], `go-fuzz-${os}-${packageName}-${options.fuzzRegexp}-`, []);
 }
-exports.restoreCache = restoreCache;
 async function saveCache(options) {
     const cachePath = (await exec.getExecOutput("go", ["env", "GOCACHE"])).stdout.trim();
     const packageName = await getPackageName(options);
@@ -82641,7 +82642,6 @@ async function saveCache(options) {
     const os = process.env["RUNNER_OS"] || "Unknown";
     await cache.saveCache([`${cachePath}/fuzz`], `go-fuzz-${os}-${packageName}-${options.fuzzRegexp}-${id}`);
 }
-exports.saveCache = saveCache;
 async function generateReport(options, fuzzOutput) {
     const ignoreReturnCode = { cwd: options.workingDirectory, ignoreReturnCode: true };
     const lines = fuzzOutput.split("\n");

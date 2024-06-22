@@ -27598,7 +27598,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.list = void 0;
+exports.list = list;
 const exec = __importStar(__nccwpck_require__(1514));
 async function list(options) {
     // build the command line arguments.
@@ -27638,7 +27638,6 @@ async function list(options) {
         fuzzTests,
     };
 }
-exports.list = list;
 
 
 /***/ }),
