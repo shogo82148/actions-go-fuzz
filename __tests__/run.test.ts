@@ -33,7 +33,7 @@ test("found fuzz", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
 
   // return repository id
-  mockClient.mockImplementationOnce(async (_url: string, _query: any) => {
+  mockClient.mockImplementationOnce(async () => {
     return {
       statusCode: 200,
       result: { data: { repository: { id: "R_kgDOJzylxw" } } },
@@ -122,7 +122,7 @@ test("permission error during creating a branch", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
 
   // return repository id
-  mockClient.mockImplementationOnce(async (_url: string, _query: any) => {
+  mockClient.mockImplementationOnce(async () => {
     return {
       statusCode: 200,
       result: { data: { repository: { id: "R_kgDOJzylxw" } } },
@@ -185,7 +185,7 @@ test("suppress the error if the branch already exists", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
 
   // return repository id
-  mockClient.mockImplementationOnce(async (_url: string, _query: any) => {
+  mockClient.mockImplementationOnce(async () => {
     return {
       statusCode: 200,
       result: { data: { repository: { id: "R_kgDOJzylxw" } } },
