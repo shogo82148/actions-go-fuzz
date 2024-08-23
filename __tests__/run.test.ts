@@ -42,7 +42,7 @@ test("found fuzz", async () => {
   });
 
   // result of creating a branch
-  mockClient.mockImplementationOnce(async (url: string, query: any) => {
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
     expect(query.variables.input.repositoryId).toEqual("R_kgDOJzylxw");
     return {
       statusCode: 200,
@@ -54,7 +54,7 @@ test("found fuzz", async () => {
   });
 
   // result of creating a new commit.
-  mockClient.mockImplementationOnce(async (url: string, query: any) => {
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
     expect(query.variables.input.branch.repositoryNameWithOwner).toEqual("shogo82148/actions-go-fuzz");
     expect(query.variables.input.branch.branchName).toMatch(/^actions-go-fuzz\/example\/fuzz\/FuzzReverse/);
     return {
@@ -74,7 +74,7 @@ test("found fuzz", async () => {
   });
 
   // result of creating a new pull request.
-  mockClient.mockImplementationOnce(async (url: string, query: any) => {
+  mockClient.mockImplementationOnce(async (_url: string, query: any) => {
     expect(query.variables.input.repositoryId).toEqual("R_kgDOJzylxw");
     expect(query.variables.input.headRepositoryId).toEqual("R_kgDOJzylxw");
     return {
