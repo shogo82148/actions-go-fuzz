@@ -1,4 +1,4 @@
-import { list } from "./list-impl";
+import { list } from "./list-impl.js";
 import * as core from "@actions/core";
 
 async function run(): Promise<void> {

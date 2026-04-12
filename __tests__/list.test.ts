@@ -3,7 +3,7 @@ import { list } from "../src/list-impl";
 import { expect, test } from "@jest/globals";
 
 test("list fuzz tests", async () => {
-  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const workingDirectory = path.join("__tests__", "testdata", "fuzz");
   const { fuzzTests } = await list({
     packages: ["./..."],
     workingDirectory,
