@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import { fuzz, ReportMethodType, restoreCache } from "./run-impl";
+import { fuzz, ReportMethodType, restoreCache } from "./run-impl.js";
 
 function getReportMethod(): ReportMethodType {
   const method = core.getInput("report-method") || "pull-request";

@@ -62,6 +62,6 @@ outputs:
 
 runs:
   using: "node20"
-  main: "../dist/run/index.js"
-  post: "../dist/save-cache/index.js"
+  main: "../dist/run.js"
+  post: "../dist/save-cache.js"
   post-if: "always()"

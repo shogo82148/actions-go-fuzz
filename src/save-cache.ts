@@ -1,5 +1,5 @@
 import * as core from "@actions/core";
-import { saveCache } from "./run-impl";
+import { saveCache } from "./run-impl.js";
 
 async function run(): Promise<void> {
   const packages = core.getInput("packages").trim();

@@ -7,7 +7,7 @@ test("no error", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");
   mockClient.mockRejectedValue(new Error("unexpected call"));
 
-  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const workingDirectory = path.join("__tests__", "testdata", "fuzz");
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
@@ -94,7 +94,7 @@ test("found fuzz", async () => {
     };
   });
 
-  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const workingDirectory = path.join("__tests__", "testdata", "fuzz");
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
@@ -160,7 +160,7 @@ test("permission error during creating a branch", async () => {
     };
   });
 
-  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const workingDirectory = path.join("__tests__", "testdata", "fuzz");
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
@@ -223,7 +223,7 @@ test("suppress the error if the branch already exists", async () => {
     };
   });
 
-  const workingDirectory = path.join(__dirname, "testdata/fuzz");
+  const workingDirectory = path.join("__tests__", "testdata", "fuzz");
   const opts = {
     repository: "shogo82148/actions-go-fuzz",
     githubToken: "dummy",
