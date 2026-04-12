@@ -178,7 +178,7 @@ test("permission error during creating a branch", async () => {
     headBranchPrefix: "actions-go-fuzz",
     webhookUrl: "",
   };
-  await expect(fuzz(opts)).rejects.toThrowError("failed to create a branch");
+  await expect(fuzz(opts)).rejects.toThrow("failed to create a branch");
 }, 600000); // it runs go test, so it takes time.
 
 test("suppress the error if the branch already exists", async () => {
