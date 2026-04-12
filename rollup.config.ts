@@ -15,6 +15,9 @@ function makeConfig(input: string, output: string) {
       sourcemap: true,
     },
     plugins: [
+      // Disable declaration file generation: rollup bundles everything into a
+      // single output file, so emitting .d.ts files alongside it would produce
+      // incorrect relative paths and is not needed for a bundled action.
       typescript({ declaration: false, declarationMap: false }),
       nodeResolve({ preferBuiltins: true, extensions: [".ts", ".js"] }),
       commonjs(),
