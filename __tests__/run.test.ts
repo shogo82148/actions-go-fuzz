@@ -1,7 +1,10 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import { test, jest, expect } from "@jest/globals";
 import { HttpClient } from "@actions/http-client";
 import { fuzz, ReportMethod } from "../src/run-impl";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test("no error", async () => {
   const mockClient = jest.spyOn(HttpClient.prototype, "postJson");

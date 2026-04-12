@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "GitHub Actions for Go fuzzing",
-  "main": "lib/main.js",
+  "type": "module",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -12,8 +12,8 @@
     "format": "prettier --write \"**/*.ts\"",
     "format-check": "prettier --check \"**/*.ts\"",
     "lint": "eslint .",
-    "package": "ncc build -o dist/list --source-map --license licenses.txt src/list.ts && ncc build -o dist/run --source-map --license licenses.txt src/run.ts && ncc build -o dist/save-cache --source-map --license licenses.txt src/save-cache.ts",
-    "test": "jest",
+    "package": "npx rollup --config rollup.config.ts",
+    "test": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest",
     "all": "npm run build && npm run format && npm run lint && npm run package && npm test"
   },
   "repository": {
@@ -29,18 +29,24 @@
     "@actions/cache": "^4.0.3",
     "@actions/core": "^1.11.1",
     "@actions/exec": "^1.1.1",
-    "@actions/http-client": "^2.2.3"
+    "@actions/http-client": "^2.2.3",
+    "tslib": "^2.8.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.27.0",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-typescript": "^12.3.0",
     "@types/eslint__js": "^8.42.3",
     "@types/node": "^20.16.5",
-    "@vercel/ncc": "^0.38.3",
     "eslint": "^9.33.0",
     "jest": "^29.7.0",
     "js-yaml": "^4.1.0",
     "prettier": "^3.6.2",
+    "rollup": "^4.59.0",
     "ts-jest": "^29.4.1",
+    "ts-jest-resolver": "^2.0.1",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.40.0"
   }

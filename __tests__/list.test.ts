@@ -1,6 +1,9 @@
 import path from "path";
+import { fileURLToPath } from "url";
 import { list } from "../src/list-impl";
 import { expect, test } from "@jest/globals";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 test("list fuzz tests", async () => {
   const workingDirectory = path.join(__dirname, "testdata/fuzz");
